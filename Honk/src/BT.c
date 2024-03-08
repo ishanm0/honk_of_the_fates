@@ -24,5 +24,7 @@ int main(void)
         Uart1_rx(data, 128);
         printf("received: %s\n", data);
         HAL_Delay(1000);
+        Uart1_tx(data2, strlen((char *)data2));
+        HAL_Delay(1000);
     }
 }
