@@ -77,7 +77,7 @@ int8_t Uart1_rx(uint8_t* data, uint16_t size) {
  * @return SUCCESS or ERROR
  * @brief  Transmits <size> number of bytes on uart1
  * @author Adam Korycki, 2023.11.02 */
-int8_t Uart1_tx_(uint8_t* data, uint16_t size) {
+int8_t Uart1_tx(uint8_t* data, uint16_t size) {
     if (init_status_uart1 == FALSE) {
         printf("Uart1 not yet initialized\r\n");
         return ERROR;
