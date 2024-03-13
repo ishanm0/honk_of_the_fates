@@ -48,6 +48,7 @@ def main():
             print('Found UART: {0} [{1}]'.format(device.name, device.id))
         known_uarts.update(new)
         # Sleep for a second and see if new devices have appeared.
+        print('pause')
         time.sleep(1.0)
 
 
