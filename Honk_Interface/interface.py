@@ -2,9 +2,7 @@
 # implementation.
 # Author: Tony DiCola
 # import atexit
-import datetime
 import time
-import random
 
 import Adafruit_BluefruitLE
 from Adafruit_BluefruitLE.services import UART
@@ -19,6 +17,7 @@ ble = Adafruit_BluefruitLE.get_provider()
 
 devices = list()
 uarts = list()
+# packet_id = 0
 
 
 # def get_data_bytes(id: int, data: str):
@@ -37,12 +36,25 @@ uarts = list()
 #     # return out
 #     return out + (b"\x00" * ((128 if len(out) < 128 else 256) - len(out)))
 
+
 def get_data_bytes(data: tuple[int, str]):
+    # global packet_id
     id, data = data
     cksum = id
     for byte in data.encode("utf-8"):
         cksum ^= byte
-    return HEAD + len(data).to_bytes(1, "big") + id.to_bytes(1, "big") + data.encode("utf-8") + TAIL + cksum.to_bytes(1, "big") + END1 + END2
+    # packet_id += 1
+    return (
+        HEAD
+        + (len(data)).to_bytes(1, "big")
+        + id.to_bytes(1, "big")
+        # + (packet_id - 1).to_bytes(1, "big")
+        + data.encode("utf-8")
+        + TAIL
+        + cksum.to_bytes(1, "big")
+        + END1
+        + END2
+    )
     # return out
     # return out + (b"\xff" * ((26 if len(out) < 126 else 254) - len(out))) + END1 + END2
 
@@ -112,7 +124,7 @@ def parse_packet(input):
 # of automatically though and you just need to provide a main function that uses
 # the BLE provider.
 def main():
-    global tmp_id, tmp_data, ready
+    global tmp_id, tmp_data, ready#, packet_id
     alphabet = "abcdefghijklmnopqrstuvwxyz"
     j = 0
     # Clear any cached data because both bluez and CoreBluetooth have issues with
@@ -216,7 +228,11 @@ def main():
                 out_queues[i].append((i, f"{alphabet[j]}\n"))
 
                 if len(out_queues[i]) > 0:
-                    print(get_data_bytes(out_queues[i][0]), len(get_data_bytes(out_queues[i][0])))
+                    print(
+                        get_data_bytes(out_queues[i][0]),
+                        len(get_data_bytes(out_queues[i][0])),
+                        # packet_id,
+                    )
                     uart.write(get_data_bytes(out_queues[i].pop(0)))
                     print("Sent data to UART {0}.".format(i))
 

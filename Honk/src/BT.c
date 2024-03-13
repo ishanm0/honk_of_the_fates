@@ -34,6 +34,8 @@ typedef struct buffer_struct
 buffer_t buffer;
 packet_t tmp_packet;
 
+uint8_t packet_id = 0;
+
 void init()
 {
     buffer = (buffer_t)malloc(sizeof(struct buffer_struct));
@@ -82,12 +84,12 @@ void packet_parser(packet_t packet, uint8_t c)
         if (packet->length == 0)
         {
             state = 4;
-        // printf("data4\n");
+            // printf("data4\n");
         }
         else
         {
             state = 3;
-        // printf("data3\n");
+            // printf("data3\n");
         }
         break;
     case 3:
@@ -169,8 +171,10 @@ int main(void)
             // uint8_t c;
 
             int start = 0;
-            for (int i = 0; i < DATA_SIZE; i++) {
-                if (data[i] == HEAD) {
+            for (int i = 0; i < DATA_SIZE; i++)
+            {
+                if (data[i] == HEAD)
+                {
                     start = 0;
                     break;
                 }
@@ -185,7 +189,7 @@ int main(void)
                 if (packet_ready)
                 {
                     packet_ready = 0;
-                    printf("packet ready\n");
+                    // printf("packet ready\n");
                     // copy packet to buffer
                     buffer->buffer[buffer->tail]->id = tmp_packet->id;
                     buffer->buffer[buffer->tail]->length = tmp_packet->length;
@@ -203,16 +207,23 @@ int main(void)
             }
         }
 
-        while (!buffer->empty) {
-            printf("buffer not empty\n");
-            printf("id: %d\n", buffer->buffer[buffer->head]->id);
-            // printf("length: %d\n", buffer->buffer[buffer->head]->length);
-            for (int i = 0; i < buffer->buffer[buffer->head]->length; i++)
-            {
-                printf("%c", buffer->buffer[buffer->head]->data[i]);
-                // printf("data[%d]: %d\n", i, buffer->buffer[buffer->head]->data[i]);
-            }
-            printf("\n");
+        while (!buffer->empty)
+        {
+            // if (buffer->buffer[buffer->head]->data[0] > packet_id)
+            // {
+                // packet_id = buffer->buffer[buffer->head]->data[0];
+                printf("buffer not empty\n");
+                printf("id/packet: %d/%x\n", buffer->buffer[buffer->head]->id, packet_id);
+                // printf("length: %d\n", buffer->buffer[buffer->head]->length);
+                for (int i = 0; i < buffer->buffer[buffer->head]->length; i++)
+                {
+                    printf("%c", buffer->buffer[buffer->head]->data[i]);
+                    // printf("data[%d]: %d\n", i, buffer->buffer[buffer->head]->data[i]);
+                }
+                printf("\n");
+            // } else {
+            //     printf("packet id: %x\n", buffer->buffer[buffer->head]->data[0]);
+            // }
             buffer->head = (buffer->head + 1) % BUFFER_SIZE;
             if (buffer->head == buffer->tail)
             {
