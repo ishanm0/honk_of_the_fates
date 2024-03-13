@@ -7,7 +7,7 @@
 #include <math.h>
 
 int R, G, B, C, X, H_prime;
-char temp_check;
+char flag;
 int initFunc(void) // initializes everything we need
 {
     BOARD_Init();
@@ -41,19 +41,16 @@ int map(int x, int in_min, int in_max, int out_min, int out_max)
 int main(void)
 {
     initFunc();
-    temp_check = FALSE;
     while (TRUE)
     {
-
-
-        if (temp_check == FALSE && IR_Detect() == TRUE){
-            printf("IsTouched: TRUE %d \n", IR_Count());
-            temp_check = TRUE;
-        } else if (temp_check == TRUE && IR_Detect() == FALSE){
-            printf("IsTouched: FALSE \n");
-            temp_check = FALSE;
+        if (IR_Detect() == TRUE)
+        {
+            flag = TRUE;
         }
-
-        
+        if ((IR_timecheck() + 300 < TIMERS_GetMilliSeconds()) && (flag == TRUE))
+        {
+            printf("change states %d \n", IR_Count());
+            flag = FALSE; 
+        }
     }
 }

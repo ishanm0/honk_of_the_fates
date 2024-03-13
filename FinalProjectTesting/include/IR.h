@@ -70,5 +70,6 @@ char IR_Detect(void);
  * @brief       Returns count. 
  */
 int IR_Count(void);
+int IR_timecheck(void);
 
 #endif  /* IR_H */

@@ -82,6 +82,10 @@ int IR_Count(void)
 {
     return count;
 }
+int IR_timecheck(void)
+{
+    return time;
+}
 
 char IR_Detect(void)
 {
