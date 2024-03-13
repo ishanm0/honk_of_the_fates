@@ -1,92 +1,59 @@
+#include <IR.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <Board.h>
 #include <ADC.h>
 #include <pwm.h>
-#include <buttons.h>
 #include <math.h>
-//#include <ws2812-spi.h>
 
-#define NUM_LED 8
-uint8_t LED_Data[NUM_LED][4];
-
-extern SPI_HandleTypeDef hspi1;
-
-#define USE_BRIGHTNESS 1
-extern int brightness;
-
-void setLED(int led, int RED, int GREEN, int BLUE)
-{
-    LED_Data[led][0] = led;
-    LED_Data[led][1] = GREEN;
-    LED_Data[led][2] = RED;
-    LED_Data[led][3] = BLUE;
-}
-
-void ws2812_spi(int GREEN, int RED, int BLUE)
-{
-#if USE_BRIGHTNESS
-    if (brightness > 100)
-        brightness = 100;
-    GREEN = GREEN * brightness / 100;
-    RED = RED * brightness / 100;
-    BLUE = BLUE * brightness / 100;
-#endif
-    uint32_t color = GREEN << 16 | RED << 8 | BLUE;
-    uint8_t sendData[24];
-    int indx = 0;
-
-    for (int i = 23; i >= 0; i--)
-    {
-        if (((color >> i) & 0x01) == 1)
-            sendData[indx++] = 0b110; // store 1
-        else
-            sendData[indx++] = 0b100; // store 0
-    }
-
-    HAL_SPI_Transmit(&hspi1, sendData, 24, 1000);
-}
-
-void WS2812_Send(void)
-{
-    for (int i = 0; i < NUM_LED; i++)
-    {
-        ws2812_spi(LED_Data[i][1], LED_Data[i][2], LED_Data[i][3]);
-    }
-    HAL_Delay(1);
-}
-
+int R, G, B, C, X, H_prime;
+char temp_check;
 int initFunc(void) // initializes everything we need
 {
     BOARD_Init();
-    //ws2812_init();
+    ADC_Init();
+    PWM_Init();
+    IR_Init();
+    TIMER_Init();
     return SUCCESS;
+}
+
+// takes a value x that ranges from in_min to in_max
+// outputs a the value mapped from a range of out_min to out_max
+int map(int x, int in_min, int in_max, int out_min, int out_max)
+{
+    int scaled_value = (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+
+    // Ensure the result does not exceed the specified range
+    if (scaled_value > out_max)
+    {
+        scaled_value = out_max;
+    }
+    // Ensure the result does not go below the specified range
+    else if (scaled_value < out_min)
+    {
+        scaled_value = out_min;
+    }
+
+    return scaled_value;
 }
 
 int main(void)
 {
     initFunc();
-    while (1)
+    temp_check = FALSE;
+    while (TRUE)
     {
-        for (int i = 0; i < 4; i++)
-        {
-            setLED(i, 255, 0, 0);
-        }
-        WS2812_Send();
-        HAL_Delay(1000);
 
-        for (int i = 0; i < 4; i++)
-        {
-            setLED(i, 0, 255, 0);
-        }
-        WS2812_Send();
-        HAL_Delay(1000);
 
-        for (int i = 0; i < 4; i++)
-        {
-            setLED(i, 0, 0, 255);
+        if (temp_check == FALSE && IR_Detect() == TRUE){
+            printf("IsTouched: TRUE %d \n", IR_Count());
+            temp_check = TRUE;
+        } else if (temp_check == TRUE && IR_Detect() == FALSE){
+            printf("IsTouched: FALSE \n");
+            temp_check = FALSE;
         }
-        WS2812_Send();
-        HAL_Delay(1000);
+
+        
     }
 }
