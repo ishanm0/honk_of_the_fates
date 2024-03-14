@@ -151,7 +151,7 @@ int main(void)
 {
     BOARD_Init();
     Uart1_Init(9600);
-    init(&buffer, &tmp_packet);
+    init();
     uint8_t data[50];
     // uint8_t last_data[1];
     // uint8_t last_data[DATA_SIZE];
