@@ -17,6 +17,18 @@ volatile bool rotary_change = false;
 
 void QEI_IRQ();
 
+typedef enum {
+    STATE_00,
+    STATE_01,
+    STATE_11,
+    STATE_10
+} QEI_State;
+
+QEI_State state = STATE_11;
+uint8_t ENC_state = 0;
+int TickCount = 0;
+int IncCount = 0;
+
 void QEI_Init(void) {
     //Configure GPIO pins : PB4 PB5 
     GPIO_InitTypeDef GPIO_InitStruct = {0};
@@ -124,7 +136,7 @@ int QEI_GetPosition(void) {
     // return current position of encoder in degrees
     // if rotary count is +360, then reset to 0
     // if rotary count is -360, then reset to 0
-    return (rotary_count * 360 / 8);
+    return abs(rotary_count * 360 / 8);
     
 }
 
@@ -135,49 +147,49 @@ void QEI_SetPosition(int position) {
 
 void map2color(int* red, int* green, int* blue, int degree) {
     // map rotary encoder 8 increments to 8 colors
-    // 0 -> red
-    // 45 -> yellow
+    // 0 -> dark blue
+    // 45 -> light pink
     // 90 -> green
-    // 135 -> cyan
-    // 180 -> blue
-    // 225 -> magenta
+    // 135 -> red
+    // 180 -> light blue
+    // 225 -> yellow
     // 270 -> purple
-    // 315 -> yellow
-    if (degree >= 0 && degree < 45) {
-        *red = MAX_RED;
-        *green = (degree * MAX_GREEN) / 45;
-        *blue = 0;
-    } else if (degree >= 45 && degree < 90) {
-        *red = MAX_RED - ((degree - 45) * MAX_RED) / 45;
-        *green = MAX_GREEN;
-        *blue = 0;
-    } else if (degree >= 90 && degree < 135) {
+    // 315 -> white
+    if (degree >= 0 && degree < 45) { // luminous orange
+        *red = 255;
+        *green = 10;
+        *blue = 255;
+    } else if (degree >= 45 && degree < 90) { // pastel yellow
         *red = 0;
-        *green = MAX_GREEN;
-        *blue = (degree - 90) * MAX_BLUE / 45;
-    } else if (degree >= 135 && degree < 180) {
+        *green = 100;
+        *blue = 200;
+    } else if (degree >= 90 && degree < 135) { // green
+        *red = 255;
+        *green = 255;
+        *blue = 0;
+    } else if (degree >= 135 && degree < 180) { // blue lilac
         *red = 0;
-        *green = MAX_GREEN - ((degree - 135) * MAX_GREEN) / 45;
-        *blue = MAX_BLUE;
-    } else if (degree >= 180 && degree < 225) {
-        *red = (degree - 180) * MAX_RED / 45;
-        *green = 0;
-        *blue = MAX_BLUE;
-    } else if (degree >= 225 && degree < 270) {
-        *red = MAX_RED;
-        *green = 0;
-        *blue = MAX_BLUE - ((degree - 225) * MAX_BLUE) / 45;
-    } else if (degree >= 270 && degree < 315) {
-        *red = MAX_RED - ((degree - 270) * MAX_RED) / 45;
+        *green = 255;
+        *blue = 255;
+    } else if (degree >= 180 && degree < 225) { // light pink
+        *red = 255;
         *green = 0;
         *blue = 0;
-    } else if (degree >= 315 && degree < 360) {
+    } else if (degree >= 225 && degree < 270) { // white
         *red = 0;
-        *green = (degree - 315) * MAX_GREEN / 45;
+        *green = 255;
+        *blue = 0;
+    } else if (degree >= 270 && degree < 315) { // pastel turquoise
+        *red = 150;
+        *green = 0;
+        *blue = 255;
+    } else if (degree >= 315 && degree < 360) { // wine red
+        *red = 0;
+        *green = 0;
         *blue = 0;
     }
     // map values to values of 100
-    *red = (*red * 100) / 255;
-    *green = (*green * 100) / 255;
-    *blue = (*blue * 100) / 255;
+    *red = abs((*red * 100) / 255);
+    *green = abs((*green * 100) / 255);
+    *blue = abs((*blue * 100) / 255);
 }
