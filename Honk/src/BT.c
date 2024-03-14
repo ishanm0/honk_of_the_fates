@@ -152,85 +152,142 @@ int main(void)
     BOARD_Init();
     Uart1_Init(9600);
     init(&buffer, &tmp_packet);
-    uint8_t data[DATA_SIZE];
+    uint8_t data[50];
+    // uint8_t last_data[1];
     // uint8_t last_data[DATA_SIZE];
     printf("init done\n");
     while (1)
     {
-        if (Uart1_rx(data, DATA_SIZE) == 1)
-        {
-            // int start = 0;
-            // for (int i = 0; i < DATA_SIZE; i++)
-            // {
-            //     if (data[i] != last_data[i])
-            //     {
-            //         start = i;
-            //         break;
-            //     }
-            // }
-            // uint8_t c;
-
-            int start = 0;
-            for (int i = 0; i < DATA_SIZE; i++)
-            {
-                if (data[i] == HEAD)
-                {
-                    start = 0;
-                    break;
-                }
+        // take in one byte at a time
+        if (Uart1_rx(data, 50) == SUCCESS) {
+            // feed into packet parser
+            for (int i = 0; i < 50; i++) {
+                // if (data[i] != last_data[i]) {
+                    // if (data[i] != 0xff) {
+                    // compare data[i] to dollar sign
+                    if (data[i] != 0xff) {
+                        printf("data: %c\n", data[i]);
+                    } //else {
+                    //     continue;
+                    // }
+                    // last_data[i] = data[i];
+                
+                // printf("data: %c %x\n", data[i], data[i]);
             }
-
-            for (int i = 0; i < DATA_SIZE; i++)
+            HAL_Delay(50);
+            continue;
+            packet_parser(tmp_packet, data[0]);
+            // if packet is ready, copy to buffer
+            if (packet_ready)
             {
-                // c = data[i];
-                packet_parser(tmp_packet, data[(start + i) % DATA_SIZE]);
-                // printf("data[%d]: %x\n", i, data[i]);
-                // packet_parser(tmp_packet, data[i]);
-                if (packet_ready)
+                packet_ready = 0;
+                // copy packet to buffer
+                buffer->buffer[buffer->tail]->id = tmp_packet->id;
+                buffer->buffer[buffer->tail]->length = tmp_packet->length;
+                for (int j = 0; j < tmp_packet->length; j++)
                 {
-                    packet_ready = 0;
-                    // printf("packet ready\n");
-                    // copy packet to buffer
-                    buffer->buffer[buffer->tail]->id = tmp_packet->id;
-                    buffer->buffer[buffer->tail]->length = tmp_packet->length;
-                    for (int j = 0; j < tmp_packet->length; j++)
-                    {
-                        buffer->buffer[buffer->tail]->data[j] = tmp_packet->data[j];
-                    }
-                    buffer->tail = (buffer->tail + 1) % BUFFER_SIZE;
-                    if (buffer->tail == buffer->head)
-                    {
-                        buffer->full = 1;
-                    }
-                    buffer->empty = 0;
+                    buffer->buffer[buffer->tail]->data[j] = tmp_packet->data[j];
                 }
+                buffer->tail = (buffer->tail + 1) % BUFFER_SIZE;
+                if (buffer->tail == buffer->head)
+                {
+                    buffer->full = 1;
+                }
+                buffer->empty = 0;
             }
-        }
-
-        while (!buffer->empty)
-        {
-            // if (buffer->buffer[buffer->head]->data[0] > packet_id)
-            // {
-                // packet_id = buffer->buffer[buffer->head]->data[0];
+            while (!buffer->empty) {
                 printf("buffer not empty\n");
                 printf("id/packet: %d/%x\n", buffer->buffer[buffer->head]->id, packet_id);
-                // printf("length: %d\n", buffer->buffer[buffer->head]->length);
                 for (int i = 0; i < buffer->buffer[buffer->head]->length; i++)
                 {
                     printf("%c", buffer->buffer[buffer->head]->data[i]);
-                    // printf("data[%d]: %d\n", i, buffer->buffer[buffer->head]->data[i]);
                 }
                 printf("\n");
-            // } else {
-            //     printf("packet id: %x\n", buffer->buffer[buffer->head]->data[0]);
-            // }
-            buffer->head = (buffer->head + 1) % BUFFER_SIZE;
-            if (buffer->head == buffer->tail)
-            {
-                buffer->empty = 1;
+                buffer->head = (buffer->head + 1) % BUFFER_SIZE;
+                if (buffer->head == buffer->tail)
+                {
+                    buffer->empty = 1;
+                }
+                buffer->full = 0;
             }
-            buffer->full = 0;
         }
+
+
+
+        // if (Uart1_rx(data, DATA_SIZE) == 1)
+        // {
+        //     // int start = 0;
+        //     // for (int i = 0; i < DATA_SIZE; i++)
+        //     // {
+        //     //     if (data[i] != last_data[i])
+        //     //     {
+        //     //         start = i;
+        //     //         break;
+        //     //     }
+        //     // }
+        //     // uint8_t c;
+
+        //     int start = 0;
+        //     for (int i = 0; i < DATA_SIZE; i++)
+        //     {
+        //         if (data[i] == HEAD)
+        //         {
+        //             start = 0;
+        //             break;
+        //         }
+        //     }
+
+        //     for (int i = 0; i < DATA_SIZE; i++)
+        //     {
+        //         // c = data[i];
+        //         packet_parser(tmp_packet, data[(start + i) % DATA_SIZE]);
+        //         // printf("data[%d]: %x\n", i, data[i]);
+        //         // packet_parser(tmp_packet, data[i]);
+        //         if (packet_ready)
+        //         {
+        //             packet_ready = 0;
+        //             // printf("packet ready\n");
+        //             // copy packet to buffer
+        //             buffer->buffer[buffer->tail]->id = tmp_packet->id;
+        //             buffer->buffer[buffer->tail]->length = tmp_packet->length;
+        //             for (int j = 0; j < tmp_packet->length; j++)
+        //             {
+        //                 buffer->buffer[buffer->tail]->data[j] = tmp_packet->data[j];
+        //             }
+        //             buffer->tail = (buffer->tail + 1) % BUFFER_SIZE;
+        //             if (buffer->tail == buffer->head)
+        //             {
+        //                 buffer->full = 1;
+        //             }
+        //             buffer->empty = 0;
+        //         }
+        //     }
+        // }
+
+        // while (!buffer->empty)
+        // {
+        //     // if (buffer->buffer[buffer->head]->data[0] > packet_id)
+        //     // {
+        //         // packet_id = buffer->buffer[buffer->head]->data[0];
+        //         printf("buffer not empty\n");
+        //         printf("id/packet: %d/%x\n", buffer->buffer[buffer->head]->id, packet_id);
+        //         // printf("length: %d\n", buffer->buffer[buffer->head]->length);
+        //         for (int i = 0; i < buffer->buffer[buffer->head]->length; i++)
+        //         {
+        //             printf("%c", buffer->buffer[buffer->head]->data[i]);
+        //             // printf("data[%d]: %d\n", i, buffer->buffer[buffer->head]->data[i]);
+        //         }
+        //         printf("\n");
+        //     // } else {
+        //     //     printf("packet id: %x\n", buffer->buffer[buffer->head]->data[0]);
+        //     // }
+        //     buffer->head = (buffer->head + 1) % BUFFER_SIZE;
+        //     if (buffer->head == buffer->tail)
+        //     {
+        //         buffer->empty = 1;
+        //     }
+        //     buffer->full = 0;
+        // }
 
         // Uart1_rx(data, 128);
         HAL_Delay(100);
