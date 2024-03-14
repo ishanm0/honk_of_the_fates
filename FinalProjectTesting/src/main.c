@@ -1,119 +1,153 @@
-#include <WS2812.h>
+// #include <WS2812.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <Board.h>
 #include <ADC.h>
 #include <pwm.h>
 #include <math.h>
+
+#include <string.h>
 #include <stm32f4xx_hal_spi.h>
+#include "stm32f4xx.h"
 
-// /*
-// DK THING
-//     // /* Private variables ---------------------------------------------------------*/
-//     // SPI_HandleTypeDef hspi1;
+// GPT assisted:
 
-//     // UART_HandleTypeDef huart2;
+#define WS2812_SPI SPI2
+#define WS2812_SPI_GPIO_PORT GPIOB
+#define WS2812_SPI_SCK_PIN GPIO_PIN_13  // PB13 for SPI2_SCK
+#define WS2812_SPI_MOSI_PIN GPIO_PIN_15 // PB15 for SPI2_MOSI
 
-//     // /* USER CODE BEGIN PV */
-//     // // Global flags
-//     // volatile uint8_t spi_xmit_flag = 0;
-//     // volatile uint8_t spi_recv_flag = 0;
-
-//     // /* USER CODE END PV */
-
-//     // /* Private function prototypes -----------------------------------------------*/
-//     // void SystemClock_Config(void);
-//     // // static void MX_GPIO_Init(void);
-//     // // static void MX_USART2_UART_Init(void);
-//     // static void MX_SPI1_Init(void);
-// */
-
-/* Private variables ---------------------------------------------------------*/
-SPI_HandleTypeDef hspi1;
-
-// ...
-
-/**
-  * @brief SPI1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SPI1_Init(void)
+SPI_HandleTypeDef hspi;
+/* WS2812 SPI initialization function */
+void WS2812_SPI_Init(void)
 {
 
-  /* USER CODE BEGIN SPI1_Init 0 */
+  /* SPI peripheral clock enable */
+  __HAL_RCC_SPI2_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
-  /* USER CODE END SPI1_Init 0 */
+  /* SPI SCK and MOSI GPIO pin configuration */
+  GPIO_InitTypeDef GPIO_InitStruct;
+  GPIO_InitStruct.Pin = WS2812_SPI_SCK_PIN | WS2812_SPI_MOSI_PIN;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  GPIO_InitStruct.Alternate = GPIO_AF5_SPI2; // Alternate function 5 for SPI2
+  HAL_GPIO_Init(WS2812_SPI_GPIO_PORT, &GPIO_InitStruct);
 
-  /* USER CODE BEGIN SPI1_Init 1 */
-
-  /* USER CODE END SPI1_Init 1 */
-  /* SPI1 parameter configuration*/
-  hspi1.Instance = SPI1;
-  hspi1.Init.Mode = SPI_MODE_MASTER;
-  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
-  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi1.Init.CRCPolynomial = 10;
-//   if (HAL_SPI_Init(&hspi1) != HAL_OK)
-//   {
-//     Error_Handler();
-//   }
-  /* USER CODE BEGIN SPI1_Init 2 */
-    
-  /* USER CODE END SPI1_Init 2 */
-
+  /* SPI initialization */
+  hspi.Instance = WS2812_SPI;
+  hspi.Init.Mode = SPI_MODE_MASTER;
+  hspi.Init.Direction = SPI_DIRECTION_1LINE;
+  hspi.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi.Init.NSS = SPI_NSS_SOFT;
+  hspi.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32; // Adjust this as necessary for your LED timing
+  hspi.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi.Init.CRCPolynomial = 10;
+  HAL_SPI_Init(&hspi);
 }
 
-HAL_StatusTypeDef HAL_SPI_Transmit_IT(SPI_HandleTypeDef *hspi, uint8_t *pData, uint16_t Size);
+// /* Function to send data to WS2812 LEDs */
+// void WS2812_SendData(uint8_t *data, uint16_t len)
+// {
+//     HAL_SPI_Transmit(&WS2812_SPI, data, len, HAL_MAX_DELAY);
+// }
 
 // SELF WRITTEN:
+
+// RGB:
+#define WS2812_NUM_LEDS 20
+// #define WS2812_SPI_HANDLE hspi
+
+#define WS2812_RESET_PULSE 10
+#define WS2812_BUFFER_SIZE (WS2812_NUM_LEDS * 24 + WS2812_RESET_PULSE)
+
+// extern SPI_HandleTypeDef WS2812_SPI_HANDLE;
+// extern uint8_t ws2812_buffer[];
+
+uint8_t ws2812_buffer[WS2812_BUFFER_SIZE];
+
+void ws2812_send_spi(void)
+{
+  // HAL_SPI_Transmit(&WS2812_SPI_HANDLE, ws2812_buffer, WS2812_BUFFER_SIZE, HAL_MAX_DELAY);
+  HAL_SPI_Transmit(&hspi, ws2812_buffer, WS2812_BUFFER_SIZE, HAL_MAX_DELAY);
+  // HAL_SPI_Transmit(&WS2812_SPI_HANDLE, ws2812_buffer, WS2812_BUFFER_SIZE, 0xFFFFFFFFU);
+}
+
+void ws2812_init(void)
+{
+  memset(ws2812_buffer, 0, WS2812_BUFFER_SIZE);
+  ws2812_send_spi();
+}
+
+#define WS2812_FILL_BUFFER(COLOR)             \
+  for (uint8_t mask = 0x80; mask; mask >>= 1) \
+  {                                           \
+    if (COLOR & mask)                         \
+    {                                         \
+      *ptr++ = 0xfc;                          \
+    }                                         \
+    else                                      \
+    {                                         \
+      *ptr++ = 0x80;                          \
+    }                                         \
+  }
+
+void ws2812_pixel(uint16_t led_no, uint8_t r, uint8_t g, uint8_t b)
+{
+  uint8_t *ptr = &ws2812_buffer[24 * led_no];
+  WS2812_FILL_BUFFER(g);
+  WS2812_FILL_BUFFER(r);
+  WS2812_FILL_BUFFER(b);
+}
+
+void ws2812_pixel_all(uint8_t r, uint8_t g, uint8_t b)
+{
+  uint8_t *ptr = ws2812_buffer;
+  for (uint16_t i = 0; i < WS2812_NUM_LEDS; ++i)
+  {
+    printf("%x %x %x\n", r, g, b);
+    WS2812_FILL_BUFFER(g);
+    WS2812_FILL_BUFFER(r);
+    WS2812_FILL_BUFFER(b);
+  }
+  for (int i = 0; i < 64; i++){
+  printf("%x", ws2812_buffer[i]);
+  if ((i+1) % 8 == 0)
+  printf("\n");
+  }
+}
+
+// MAIN:
 
 int R, G, B, C, X, H_prime;
 char flag;
 int initFunc(void) // initializes everything we need
 {
-    BOARD_Init();
-    // PWM_Init();
-    // TIMER_Init();
+  BOARD_Init();
+  // PWM_Init();
+  // TIMER_Init();
 
-// /* DK THING
-//     /* MCU Configuration--------------------------------------------------------*/
+  // initialize SPI
 
-//     /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-//     // HAL_Init();
+  // RGB library
+  WS2812_SPI_Init();
+  ws2812_init();
+  ws2812_pixel(0, 0, 0, 0);
 
-//     /* Configure the system clock */
-//     // SystemClock_Config();
-
-//     /* Initialize all configured peripherals */
-//     // MX_GPIO_Init();
-//     // MX_USART2_UART_Init();
-//     // MX_SPI1_Init();
-// */
-
-    // initialize SPI
-    MX_SPI1_Init();
-
-    // RGB library
-    ws2812_init();
-    ws2812_pixel_all(255,255,255);
-
-    return SUCCESS;
+  return SUCCESS;
 }
 
 int main(void)
 {
-    initFunc();
-    while (TRUE)
-    {
-        HAL_Delay(4000);
-        ws2812_send_spi();
-    }
+  initFunc();
+  while (TRUE)
+  {
+    HAL_Delay(4000);
+    ws2812_send_spi();
+  }
 }
