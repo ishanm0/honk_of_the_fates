@@ -39,22 +39,30 @@ uarts = list()
 
 def get_data_bytes(data: tuple[int, str]):
     # global packet_id
-    id, data = data
+    delimiter = b"\xff"
+    id, message = data
     cksum = id
-    for byte in data.encode("utf-8"):
+    encoded_message = message.encode("utf-8")
+    for byte in encoded_message:
         cksum ^= byte
+    delimiter_msg = delimiter.join([encoded_message[i:i+1] for i in range(len(encoded_message))])
+    print(f"Delimiter Message: {delimiter_msg}")
     # packet_id += 1
+    # data = delimiter.join([c.encode("utf-8") for c in data])
+    # data = data.encode("utf-8")
     return (
         HEAD
-        + (len(data)).to_bytes(1, "big")
+        # + (len(data)).to_bytes(1, "big")
+        + len(delimiter_msg).to_bytes(1, "big")
         + id.to_bytes(1, "big")
         # + (packet_id - 1).to_bytes(1, "big")
-        + data.encode("utf-8")
+        + delimiter_msg#.encode("utf-8")
         + TAIL
         + cksum.to_bytes(1, "big")
         + END1
         + END2
     )
+    # out = delimiter.join(out.split())+END2
     # return out
     # return out + (b"\xff" * ((26 if len(out) < 126 else 254) - len(out))) + END1 + END2
 
@@ -192,9 +200,9 @@ def main():
 
         in_queues = [list() for _ in uarts]
         out_queues = [list() for _ in uarts]
-        for i in range(len(out_queues)):
-            out_queues[i].append((i, "Hello World!\n"))
-            uarts[i].write("hello, world!\n".encode("utf-8"))
+        # for i in range(len(out_queues)):
+            # out_queues[i].append((i, "Hello World!\n"))
+            # uarts[i].write("hello, world!\n".encode("utf-8"))
 
         while True:
             for i, uart in enumerate(uarts):
@@ -225,7 +233,17 @@ def main():
                     id, data = in_queues[i].pop(0)
                     print("Received: {0}: {1}, UART: {2}".format(id, data, i))
 
-                out_queues[i].append((i, f"{alphabet[j]}\n"))
+                # before going into out_queues, serialize the message to have a delimiter
+                # msg_pre = "hello, world!"
+                # delimiter = "$" # 
+                # message = delimiter.join(msg_pre)
+                # print("Message: {0}".format(message))
+                
+
+                
+
+                # out_queues[i].append((i, f"{alphabet[j]}\n"))
+                out_queues[i].append((i, f"world!\n"))
 
                 if len(out_queues[i]) > 0:
                     print(
