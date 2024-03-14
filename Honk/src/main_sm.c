@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include <buttons.h>
+#include <timers.h>
 
 #define NO_BUTTON 0x0 // no buttons pressed
 #define BUTTON_1 0x1 // button 0 pressed
@@ -14,11 +15,20 @@
 #define BUTTON_3 0x4 // button 2 pressed
 #define BUTTON_4 0x8 // button 3 pressed
 
+typedef enum { // see google doc stm32 state machine
+    STATE_IDLE,
+    STATE_P_INIT,
+    STATE_START,
+    STATE_WAIT,
+    STATE_HIT
+} main_sm_t;
+
 int main(void) {
     BOARD_Init();
     QEI_Init();
     PWM_Init();
     BUTTONS_Init();
+    main_sm_t state = STATE_IDLE;
 
     while(TRUE) {
         int red = 0;
@@ -42,5 +52,11 @@ int main(void) {
         } else if (buttons & BUTTON_4) {
             printf("Button 4 pressed\n"); // pin 30
         }
+
+        // spell 1 > spell 2
+        // spell 2 > spell 3
+        // spell 3 > spell 1
+
+        switch (state) {} // state machine initialization
     }
 }
