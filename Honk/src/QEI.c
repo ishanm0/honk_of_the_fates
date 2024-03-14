@@ -69,6 +69,7 @@ void QEI_IRQ() {
 
     switch (rotary_state) {
         case 0x00: // 00
+            // printf("00\n");
             if (new_state == 0x01) { // from 00 to 01, increment counter
                 buffer--;
             } else if (new_state == 0x02) { // from 00 to 10, increment counter
@@ -76,6 +77,7 @@ void QEI_IRQ() {
             }
             break;
         case 0x01: // 01
+            // printf("01\n");
             if (new_state == 0x00) { // from 01 to 00, increment counter
                 buffer++;
             } else if (new_state == 0x03) { // from 01 to 11, decrement counter
@@ -83,6 +85,7 @@ void QEI_IRQ() {
             }
             break;
         case 0x03: // 11
+            // printf("11\n");
             if (new_state == 0x02) { // from 11 to 10, decrement counter
                 buffer--;
             } else if (new_state == 0x01) { // from 11 to 01, increment counter
@@ -90,6 +93,7 @@ void QEI_IRQ() {
             }
             break;
         case 0x02: // 10
+            // printf("10\n");
             if (new_state == 0x03) { // from 10 to 11, increment counter
                 buffer++;
             } else if (new_state == 0x00) { // from 10 to 00, decrement counter
@@ -120,7 +124,7 @@ int QEI_GetPosition(void) {
     // return current position of encoder in degrees
     // if rotary count is +360, then reset to 0
     // if rotary count is -360, then reset to 0
-    return (rotary_count * 360 / 24);
+    return (rotary_count * 360 / 8);
     
 }
 
@@ -172,4 +176,8 @@ void map2color(int* red, int* green, int* blue, int degree) {
         *green = (degree - 315) * MAX_GREEN / 45;
         *blue = 0;
     }
+    // map values to values of 100
+    *red = (*red * 100) / 255;
+    *green = (*green * 100) / 255;
+    *blue = (*blue * 100) / 255;
 }

@@ -26,9 +26,11 @@ int main(void) {
         int blue = 0;
         uint8_t buttons = ~buttons_state() & 0xF; // read the buttons and invert the bits
         map2color(&red, &green, &blue, QEI_GetPosition()); // map rotary count to RGB values
+        printf("Red: %d, Green: %d, Blue: %d\n", red, green, blue); // print the RGB values (for debugging purposes
+        printf("position: %d\n", QEI_GetPosition()); // print the rotary count (for debugging purposes
         // set the duty cycle of the PWM to the RGB values
-        // PWM_SetDutyCycle(PWM_2, red);
-        // PWM_SetDutyCycle(PWM_1, green);
+        // PWM_SetDutyCycle(PWM_4, red);
+        // PWM_SetDutyCycle(PWM_2, green);
         // PWM_SetDutyCycle(PWM_0, blue);
         
         if (buttons & BUTTON_1) {
