@@ -70,12 +70,13 @@ ready = False
 
 def parse_packet(input):
     global tmp_id, tmp_len, tmp_data, tmp_cksum, state, data_index, ready
+    # print(input, hex(input))
     if state == 0:
-        if input == HEAD:
+        if input == int.from_bytes(HEAD):
             state = 1
             tmp_id = None
             tmp_len = 0
-            tmp_data = b""
+            tmp_data = []
             tmp_cksum = 0
             data_index = 0
             ready = False
@@ -90,13 +91,13 @@ def parse_packet(input):
         else:
             state = 3
     elif state == 3:
-        tmp_data += input
+        tmp_data += [int.to_bytes(input, 1, "big")]
         tmp_cksum ^= input
         data_index += 1
         if data_index == tmp_len:
             state = 4
     elif state == 4:
-        if input == TAIL:
+        if input == int.from_bytes(TAIL):
             state = 5
         else:
             state = 0
@@ -106,12 +107,12 @@ def parse_packet(input):
         else:
             state = 0
     elif state == 6:
-        if input == END1:
+        if input == int.from_bytes(END1):
             state = 7
         else:
             state = 0
     elif state == 7:
-        if input == END2:
+        if input == int.from_bytes(END2):
             ready = True
             state = 0
         else:
@@ -125,7 +126,9 @@ def parse_packet(input):
 # the BLE provider.
 def main():
     global tmp_id, tmp_data, ready#, packet_id
+    # alphabet = "".join(reversed("abcdefghijklmnopqrstuvwxyz"))
     alphabet = "abcdefghijklmnopqrstuvwxyz"
+    # print(alphabet)
     j = 0
     # Clear any cached data because both bluez and CoreBluetooth have issues with
     # caching data and it going stale.
@@ -198,13 +201,7 @@ def main():
 
         while True:
             for i, uart in enumerate(uarts):
-                print("UART: {0}".format(i))
-                # if random.random() < 0.5:
-                #     ts = datetime.datetime.now().isoformat()
-                # uart.write(b"hi there\r\n")
-                # uart.write(b"%s\r\n" % alphabet[j].encode('utf-8'))
-                # uart.write(b"%s\r\n" % ts.encode('utf-8'))
-                # print("Sent '{1}' to UART {0}.".format(i, ts))
+                # print("UART: {0}".format(i))
                 # Now wait up to one minute to receive data from the device.
                 # print('Waiting up to 60 seconds to receive data from the device...')
                 received = uart.read(timeout_sec=1)
@@ -212,6 +209,7 @@ def main():
                     # Received data, print it out.
                     print("Received: {0}".format(received))
                     for byte in received:
+                        # print('b', byte, hex(byte))
                         parse_packet(byte)
                         if ready:
                             in_queues[i].append((tmp_id, tmp_data))
@@ -227,7 +225,7 @@ def main():
 
                 out_queues[i].append((i, f"{alphabet[j]}\n"))
 
-                if len(out_queues[i]) > 0:
+                while len(out_queues[i]) > 0:
                     print(
                         get_data_bytes(out_queues[i][0]),
                         len(get_data_bytes(out_queues[i][0])),

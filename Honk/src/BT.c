@@ -81,6 +81,7 @@ void packet_parser(packet_t packet, uint8_t c)
         packet->id = c;
         // printf("%d\n", packet->id);
         packet->checksum = c;
+        // printf("id %d %d\n", c, packet->checksum);
         if (packet->length == 0)
         {
             state = 4;
@@ -96,6 +97,7 @@ void packet_parser(packet_t packet, uint8_t c)
         packet->data[index] = c;
         packet->checksum ^= c;
         index++;
+        // printf("ck %d %d %c\n", c, packet->checksum, c);
         if (index == packet->length)
         {
             state = 4;
@@ -145,6 +147,28 @@ void packet_parser(packet_t packet, uint8_t c)
     default:
         break;
     }
+}
+
+uint8_t tx_tmp[DATA_SIZE + 7];
+
+void send_packet(uint8_t id, uint8_t length, uint8_t *data)
+{
+    uint8_t checksum = 0;
+    tx_tmp[0] = HEAD;
+    tx_tmp[1] = length;
+    tx_tmp[2] = id;
+    checksum = id;
+    for (int i = 0; i < length; i++)
+    {
+        tx_tmp[i + 3] = data[i];
+        checksum ^= data[i];
+    }
+    tx_tmp[length + 3] = TAIL;
+    tx_tmp[length + 4] = checksum;
+    // printf("ck %d %x %c %c\n", checksum, checksum, checksum, data[0]);
+    tx_tmp[length + 5] = END1;
+    tx_tmp[length + 6] = END2;
+    Uart1_tx(tx_tmp, length + 7);
 }
 
 int main(void)
@@ -224,6 +248,9 @@ int main(void)
             // } else {
             //     printf("packet id: %x\n", buffer->buffer[buffer->head]->data[0]);
             // }
+
+            // send_packet(buffer->buffer[buffer->head]->id, buffer->buffer[buffer->head]->length, buffer->buffer[buffer->head]->data);
+
             buffer->head = (buffer->head + 1) % BUFFER_SIZE;
             if (buffer->head == buffer->tail)
             {
