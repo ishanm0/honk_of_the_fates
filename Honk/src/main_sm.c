@@ -8,6 +8,7 @@
 #include <math.h>
 #include <buttons.h>
 #include <timers.h>
+#include "IR.h"
 
 #define NO_BUTTON 0x0 // no buttons pressed
 #define BUTTON_1 0x1 // button 0 pressed
@@ -22,6 +23,16 @@ typedef enum { // see google doc stm32 state machine
     STATE_START,
     STATE_PROCESSING,
 } main_sm_t;
+
+void uart_receive() {
+    // receive packet from stm32
+    // return packet
+    
+}
+
+void uart_send() {
+    // send packet to stm32
+}
 
 int main(void) {
     BOARD_Init();
