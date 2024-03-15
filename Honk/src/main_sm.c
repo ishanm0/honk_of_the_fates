@@ -18,9 +18,9 @@
 typedef enum { // see google doc stm32 state machine
     STATE_IDLE,
     STATE_P_INIT,
-    STATE_START,
     STATE_WAIT,
-    STATE_HIT
+    STATE_START,
+    STATE_PROCESSING,
 } main_sm_t;
 
 int main(void) {
@@ -37,26 +37,91 @@ int main(void) {
         uint8_t buttons = ~buttons_state() & 0xF; // read the buttons and invert the bits
         map2color(&red, &green, &blue, QEI_GetPosition()); // map rotary count to RGB values
         printf("Red: %d, Green: %d, Blue: %d\n", red, green, blue); // print the RGB values (for debugging purposes
-        // printf("position: %d\n", QEI_GetPosition()); // print the rotary count (for debugging purposes
         // set the duty cycle of the PWM to the RGB values
-        PWM_SetDutyCycle(PWM_4, red);
+
+        // these pins are 100% mapped wrong but don't change them i have the colors where i want them
+        PWM_SetDutyCycle(PWM_4, red); 
         PWM_SetDutyCycle(PWM_0, green);
         PWM_SetDutyCycle(PWM_2, blue);
         
-        if (buttons & BUTTON_1) {
-            printf("Button 1 pressed\n");
-        } else if (buttons & BUTTON_2) {
-            printf("Button 2 pressed\n"); // pin 26
-        } else if (buttons & BUTTON_3) {
-            printf("Button 3 pressed\n"); // pin 27
-        } else if (buttons & BUTTON_4) {
-            printf("Button 4 pressed\n"); // pin 30
-        }
+        // if (buttons & BUTTON_1) {
+        //     printf("Button 1 pressed\n");
+        // } else if (buttons & BUTTON_2) {
+        //     printf("Button 2 pressed\n"); // pin 26
+        // } else if (buttons & BUTTON_3) {
+        //     printf("Button 3 pressed\n"); // pin 27
+        // } else if (buttons & BUTTON_4) {
+        //     printf("Button 4 pressed\n"); // pin 30
+        // }
 
         // spell 1 > spell 2
         // spell 2 > spell 3
         // spell 3 > spell 1
 
-        switch (state) {} // state machine initialization
+        switch (state) {
+            case STATE_IDLE:
+                // wait for connection confirmation from uart initialization
+                if (strcmp("connected", uart_receive()) == 0) { // if the string is equal to "connected"
+                    // uart_receive is undeclared, will be packet handler on stm32
+                    state = STATE_P_INIT; // change the state to STATE_P_INIT
+                }
+                break;
+            case STATE_P_INIT:
+                // choose color
+                // if button 1 is pressed and 1 second has passed
+                if ((buttons & BUTTON_1) && (TIMERS_GetMicroSeconds() > 1000)) {
+                    // save color in string, add color to packet
+                    if (red == 255 && green == 10 && blue == 255) {
+                        char *color = "orange";
+                    } else if (red == 0 && green == 100 && blue == 255) {
+                        char *color = "yellow";
+                    } else if (red == 255 && green == 255 && blue == 255) {
+                        char *color = "white";
+                    } else if (red == 255 && green == 10 && blue == 255) {
+                        char *color = "orange";
+                    } else if (red == 0 && green == 100 && blue == 255) {
+                        char *color = "yellow";
+                    } else if (red == 255 && green == 255 && blue == 255) {
+                        char *color = "white";
+                    } else if (red == 255 && green == 10 && blue == 255) {
+                        char *color = "orange";
+                    } else if (red == 0 && green == 100 && blue == 255) {
+                        char *color = "yellow";
+                    } else if (red == 255 && green == 255 && blue == 255) {
+                        char *color = "white";
+                    }
+                    // send packet
+                    uart_send(color); // not a real function, just pseudo code
+                    state = STATE_WAIT; // change the state to STATE_START
+                }
+                break;
+            case STATE_WAIT:
+                // wait for confirmation from stm32
+                if (strcmp("ack", uart_receive()) == 0) { // if the string is equal to "confirmed"
+                    state = STATE_START; // change the state to STATE_START
+                }
+                break;
+            case STATE_START:
+                // start the process
+                // if IR receiver counts x amount of pulses
+                if ((IR_receiver_count() == 10) && (TIMERS_GetMicroSeconds() > 5000)) { // if the IR receiver counts 10 pulses
+                    // send hit and time to stm32
+                    char time = itoa(TIMERS_GetMicroSeconds(), time, 10); // convert the time to a string
+                    char pkt = "hit " + time; // send the string "hit" and the time
+                    uart_send(pkt); // not a real function, just pseudo code
+                    state = STATE_PROCESSING; // change the state to STATE_PROCESSING
+                } else if (strcmp("miss", uart_receive()) == 0) { // if the string is equal to "missed"
+                    state = STATE_PROCESSING; // change the state to STATE_WAIT
+                }
+                break;
+            case STATE_PROCESSING:
+                // disable buttons until acknolwedgement from stm32
+                // wait for confirmation from stm32
+                if (strcmp("ack", uart_receive()) == 0) { // if the string is equal to "confirmed"
+                    state = STATE_START; // change the state to STATE_IDLE
+                }
+                break;
+
+        } // state machine initialization
     }
 }
