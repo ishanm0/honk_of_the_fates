@@ -91,10 +91,12 @@ void packet_parser(packet_t packet, uint8_t c)
         {
             state = 3;
             // printf("data3\n");
+            index = 0;
         }
         break;
     case 3:
         packet->data[index] = c;
+        // printf("%d\n", packet->checksum);
         packet->checksum ^= c;
         index++;
         // printf("ck %d %d %c\n", c, packet->checksum, c);
@@ -169,6 +171,7 @@ void send_packet(uint8_t id, uint8_t length, uint8_t *data)
     tx_tmp[length + 5] = END1;
     tx_tmp[length + 6] = END2;
     Uart1_tx(tx_tmp, length + 7);
+    // HAL_Delay(5);
 }
 
 int main(void)
@@ -181,7 +184,8 @@ int main(void)
     printf("init done\n");
     while (1)
     {
-        if (Uart1_rx(data, DATA_SIZE) == 1)
+        // printf("%04x %ld\n", USART1->SR, (USART1->SR >> 5) & 1);
+        if (Uart1_rx(data, 30) == 1)
         {
             // int start = 0;
             // for (int i = 0; i < DATA_SIZE; i++)
@@ -192,29 +196,17 @@ int main(void)
             //         break;
             //     }
             // }
-            // uint8_t c;
 
-            int start = 0;
-            for (int i = 0; i < DATA_SIZE; i++)
+            for (int i = 0; i < 30; i++)
             {
-                if (data[i] == HEAD)
+                printf("%c %02x  ", data[i], data[i]);
+                packet_parser(tmp_packet, data[i]);
+                // printf("packet: %d %d %d %d %d\n", packet_id, tmp_packet->id, packet_ready, tmp_packet->id > packet_id, tmp_packet->id == 0);
+                if (packet_ready && (tmp_packet->id > packet_id || tmp_packet->id == 0))
                 {
-                    start = 0;
-                    break;
-                }
-            }
-
-            for (int i = 0; i < DATA_SIZE; i++)
-            {
-                // c = data[i];
-                packet_parser(tmp_packet, data[(start + i) % DATA_SIZE]);
-                // printf("data[%d]: %x\n", i, data[i]);
-                // packet_parser(tmp_packet, data[i]);
-                if (packet_ready)
-                {
+                    printf("packet ready\n");
                     packet_ready = 0;
-                    // printf("packet ready\n");
-                    // copy packet to buffer
+                    packet_id = tmp_packet->id;
                     buffer->buffer[buffer->tail]->id = tmp_packet->id;
                     buffer->buffer[buffer->tail]->length = tmp_packet->length;
                     for (int j = 0; j < tmp_packet->length; j++)
@@ -235,21 +227,21 @@ int main(void)
         {
             // if (buffer->buffer[buffer->head]->data[0] > packet_id)
             // {
-                // packet_id = buffer->buffer[buffer->head]->data[0];
-                printf("buffer not empty\n");
-                printf("id/packet: %d/%x\n", buffer->buffer[buffer->head]->id, packet_id);
-                // printf("length: %d\n", buffer->buffer[buffer->head]->length);
-                for (int i = 0; i < buffer->buffer[buffer->head]->length; i++)
-                {
-                    printf("%c", buffer->buffer[buffer->head]->data[i]);
-                    // printf("data[%d]: %d\n", i, buffer->buffer[buffer->head]->data[i]);
-                }
-                printf("\n");
+            // packet_id = buffer->buffer[buffer->head]->data[0];
+            // printf("buffer not empty\n");
+            // printf("id/packet: %d/%x\n", buffer->buffer[buffer->head]->id, packet_id);
+            // printf("length: %d\n", buffer->buffer[buffer->head]->length);
+            for (int i = 0; i < buffer->buffer[buffer->head]->length; i++)
+            {
+                printf("%c", buffer->buffer[buffer->head]->data[i]);
+                // printf("data[%d]: %d\n", i, buffer->buffer[buffer->head]->data[i]);
+            }
+            // printf("\n");
             // } else {
             //     printf("packet id: %x\n", buffer->buffer[buffer->head]->data[0]);
             // }
 
-            // send_packet(buffer->buffer[buffer->head]->id, buffer->buffer[buffer->head]->length, buffer->buffer[buffer->head]->data);
+            send_packet(buffer->buffer[buffer->head]->id, buffer->buffer[buffer->head]->length, buffer->buffer[buffer->head]->data);
 
             buffer->head = (buffer->head + 1) % BUFFER_SIZE;
             if (buffer->head == buffer->tail)
@@ -260,7 +252,7 @@ int main(void)
         }
 
         // Uart1_rx(data, 128);
-        HAL_Delay(100);
+        // HAL_Delay(100);
     }
     // uint8_t data[128];
     // memset(data, 0, 128);
