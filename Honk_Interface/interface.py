@@ -39,24 +39,26 @@ uarts = list()
 
 def get_data_bytes(data: tuple[int, str]):
     # global packet_id
-    delimiter = b"\xff"
+    # delimiter = b"\xff"
     id, message = data
     cksum = id
     encoded_message = message.encode("utf-8")
     for byte in encoded_message:
         cksum ^= byte
-    delimiter_msg = delimiter.join([encoded_message[i:i+1] for i in range(len(encoded_message))])
-    print(f"Delimiter Message: {delimiter_msg}")
+    # delimiter_msg = delimiter.join([encoded_message[i:i+1] for i in range(len(encoded_message))])
+    # print(f"Delimiter Message: {delimiter_msg}")
     # packet_id += 1
     # data = delimiter.join([c.encode("utf-8") for c in data])
     # data = data.encode("utf-8")
     return (
         HEAD
         # + (len(data)).to_bytes(1, "big")
-        + len(delimiter_msg).to_bytes(1, "big")
+        # + len(delimiter_msg).to_bytes(1, "big")
+        + len(message).to_bytes(1, "big")
         + id.to_bytes(1, "big")
         # + (packet_id - 1).to_bytes(1, "big")
-        + delimiter_msg#.encode("utf-8")
+        # + delimiter_msg#.encode("utf-8")
+        + encoded_message
         + TAIL
         + cksum.to_bytes(1, "big")
         + END1
@@ -200,8 +202,8 @@ def main():
 
         in_queues = [list() for _ in uarts]
         out_queues = [list() for _ in uarts]
-        # for i in range(len(out_queues)):
-            # out_queues[i].append((i, "Hello World!\n"))
+        for i in range(len(out_queues)):
+            out_queues[i].append((i, "Hello World!\n"))
             # uarts[i].write("hello, world!\n".encode("utf-8"))
 
         while True:
@@ -243,7 +245,7 @@ def main():
                 
 
                 # out_queues[i].append((i, f"{alphabet[j]}\n"))
-                out_queues[i].append((i, f"world!\n"))
+                out_queues[i].append((i, f"hello, world!\n"))
 
                 if len(out_queues[i]) > 0:
                     print(

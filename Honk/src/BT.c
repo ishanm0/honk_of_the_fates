@@ -152,21 +152,22 @@ int main(void)
     BOARD_Init();
     Uart1_Init(9600);
     init();
-    uint8_t data[50];
+    uint8_t data[128];
     // uint8_t last_data[1];
     // uint8_t last_data[DATA_SIZE];
     printf("init done\n");
     while (1)
     {
         // take in one byte at a time
-        if (Uart1_rx(data, 50) == SUCCESS) {
+        if (Uart1_rx(data, 128) == SUCCESS) {
             // feed into packet parser
-            for (int i = 0; i < 50; i++) {
+            for (int i = 0; i < 128; i++) {
                 // if (data[i] != last_data[i]) {
                     // if (data[i] != 0xff) {
                     // compare data[i] to dollar sign
                     if (data[i] != 0xff) {
-                        printf("data: %c\n", data[i]);
+                        // printf("data: %c\n", data[i]);
+                        printf("%c", data[i]);
                     } //else {
                     //     continue;
                     // }
