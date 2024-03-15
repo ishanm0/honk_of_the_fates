@@ -5,6 +5,7 @@
 #include <ADC.h>
 #include <pwm.h>
 #include <math.h>
+#include <timers.h>
 
 #include <string.h>
 #include <stm32f4xx_hal_spi.h>
@@ -12,16 +13,16 @@
 
 #include <inttypes.h>
 
-void printBinary(uint32_t num)
-{
-    for (int i = 31; i >= 0; --i)
-    {
-        printf("%d", (num >> i) & 1);
-        if (i % 4 == 0)
-            printf(" ");
-    }
-    printf("\n");
-}
+// void printBinary(uint32_t num)
+// {
+//     for (int i = 31; i >= 0; --i)
+//     {
+//         printf("%d", (num >> i) & 1);
+//         if (i % 4 == 0)
+//             printf(" ");
+//     }
+//     printf("\n");
+// }
 
 // Set up SPI:
 
@@ -64,82 +65,14 @@ void WS2812_SPI_Init(void)
     HAL_SPI_Init(&hspi);
 }
 
-// /* Function to send data to WS2812 LEDs */
-// void WS2812_SendData(uint8_t *data, uint16_t len)
-// {
-//     HAL_SPI_Transmit(&WS2812_SPI, data, len, HAL_MAX_DELAY);
-// }
+// RGB functionality
 
-// SELF WRITTEN:
-
-// // RGB:
-// #define WS2812_NUM_LEDS 8
-// // #define WS2812_SPI_HANDLE hspi
-
-// #define WS2812_RESET_PULSE 10
-// #define WS2812_BUFFER_SIZE (WS2812_NUM_LEDS * 24 + WS2812_RESET_PULSE)
-
-// // extern SPI_HandleTypeDef WS2812_SPI_HANDLE;
-// // extern uint8_t ws2812_buffer[];
-
-// uint8_t ws2812_buffer[WS2812_BUFFER_SIZE];
-
-// void ws2812_send_spi(void)
-// {
-//   // HAL_SPI_Transmit(&WS2812_SPI_HANDLE, ws2812_buffer, WS2812_BUFFER_SIZE, HAL_MAX_DELAY);
-//   HAL_SPI_Transmit(&hspi, ws2812_buffer, WS2812_BUFFER_SIZE, HAL_MAX_DELAY);
-//   // HAL_SPI_Transmit(&WS2812_SPI_HANDLE, ws2812_buffer, WS2812_BUFFER_SIZE, 0xFFFFFFFFU);
-// }
-
-// void ws2812_init(void)
-// {
-//   memset(ws2812_buffer, 0, WS2812_BUFFER_SIZE);
-//   ws2812_send_spi();
-// }
-
-// #define WS2812_FILL_BUFFER(COLOR)             \
-//   for (uint8_t mask = 0x80; mask; mask >>= 1) \
-//   {                                           \
-//     if (COLOR & mask)                         \
-//     {                                         \
-//       *ptr++ = 0xfc;                          \
-//     }                                         \
-//     else                                      \
-//     {                                         \
-//       *ptr++ = 0x80;                          \
-//     }                                         \
-//   }
-
-// void ws2812_pixel(uint16_t led_no, uint8_t r, uint8_t g, uint8_t b)
-// {
-//   uint8_t *ptr = &ws2812_buffer[24 * led_no];
-//   WS2812_FILL_BUFFER(g);
-//   WS2812_FILL_BUFFER(r);
-//   WS2812_FILL_BUFFER(b);
-// }
-
-// void ws2812_pixel_all(uint8_t r, uint8_t g, uint8_t b)
-// {
-//   uint8_t *ptr = ws2812_buffer;
-//   for (uint16_t i = 0; i < WS2812_NUM_LEDS; ++i)
-//   {
-//     printf("%x %x %x\n", r, g, b);
-//     WS2812_FILL_BUFFER(g);
-//     WS2812_FILL_BUFFER(r);
-//     WS2812_FILL_BUFFER(b);
-//   }
-//   for (int i = 0; i < 64; i++){
-//   printf("%x", ws2812_buffer[i]);
-//   if ((i+1) % 8 == 0)
-//   printf("\n");
-//   }
-// }
-
-#define NUM_LED 120
+// set up LED color storage
+#define NUM_LED 23
 uint8_t LED_Data[NUM_LED][4];
+uint8_t DEFAULT_RGB[] = {255,0,0};
 
-// extern SPI_HandleTypeDef hspi1;
-
+// brightness controll
 #define USE_BRIGHTNESS 1
 int brightness = 20;
 
@@ -176,6 +109,7 @@ void ws2812_spi(int GREEN, int RED, int BLUE)
     HAL_SPI_Transmit(&hspi, sendData, 24, 1000);
 }
 
+// sends an updated stream of RGB LED controll signals to each LED in the system.
 void WS2812_Send(void)
 {
     for (int i = 0; i < NUM_LED; i++)
@@ -185,15 +119,72 @@ void WS2812_Send(void)
     HAL_Delay(1);
 }
 
+// pulser
+int runningPulse = FALSE; // is s pulse animation active
+int pulse_propegation = 0;
+typedef enum{
+    ROCK,
+    PAPER,
+    SISSORS,
+    UNSPECIFIED
+}spell;
+
+uint32_t lastUpdate = 0;
+uint32_t tempTime = 0;
+// uint32_t TIMERS_GetMilliSeconds(void);
+
+void spellPulse(spell used_spell){
+    // check current time
+    tempTime = TIMERS_GetMilliSeconds();
+    // ...
+    if (runningPulse && tempTime > (lastUpdate + 500))
+    {    
+        printf("Yes1: %d : %d\n", tempTime, lastUpdate);
+        if (pulse_propegation >= NUM_LED)
+        {
+            runningPulse = FALSE;
+            setLED(pulse_propegation, DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
+            pulse_propegation = 0;
+        }
+        
+        pulse_propegation ++;
+        switch(used_spell){
+            case UNSPECIFIED:
+                // Turns the pulse pixel off.
+                setLED(pulse_propegation-1, DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
+                setLED(pulse_propegation, 0, 0, 0);
+                // printf("Yes2\n");
+                break;
+            case ROCK:
+                // st;
+                break;
+            case PAPER:
+                // st;
+                break;
+            case SISSORS:
+                // st;
+                break;
+        }
+        // update last update time store
+        lastUpdate = TIMERS_GetMilliSeconds();
+        WS2812_Send();
+    }
+}
+
+// so you can do it without a set spell
+// void spellPulse(void){
+//     spellPulse(UNSPECIFIED);
+// }
+
 // MAIN:
 
-int R, G, B, C, X, H_prime;
+// int R, G, B, C, X, H_prime;
 char flag;
 int initFunc(void) // initializes everything we need
 {
     BOARD_Init();
     // PWM_Init();
-    // TIMER_Init();
+    TIMER_Init();
 
     // initialize SPI
 
@@ -204,102 +195,6 @@ int initFunc(void) // initializes everything we need
 
     return SUCCESS;
 }
-
-// int angleToColours(int inAngle)
-// {
-//     int mathAngle = inAngle;
-//     // divisions are centered every 120 (0, 120, 240)
-//     // subdivisions are every 120 offset 60 (60, 180, 300)
-//     /// Red is min at 300(reverse wrapping) and 180, max at 60
-//     if (inAngle > 300 || inAngle < 180)
-//     {
-//         // shift into easier math range 0 to 240 (add 60)
-//         if (inAngle > 300)
-//         {
-//             mathAngle -= 300; // (wrapping with the +60)
-//         }
-//         else
-//         {
-//             mathAngle += 60;
-//         }
-//         // now that it is [0, 240]:
-//         // if <120
-//         if (mathAngle <= 120)
-//         {
-//             valueR = (255 * mathAngle) / 120;
-//         }
-//         else
-//         {
-//             // flip the value of mathAngle so I can use the 0 to 120 transfer equation.
-//             mathAngle = 120 - (mathAngle - 120);
-//             // now can proceed as normal.
-//             valueR = (255 * mathAngle) / 120;
-//         }
-//     }
-//     else
-//     {
-//         valueR = 0;
-//     }
-
-//     mathAngle = inAngle;
-//     /// Green is min at 60 and 300, max at 180
-//     if (inAngle > 60 && inAngle < 300)
-//     {
-//         // shift into easier math range 0 to 240 (subtract 60)
-//         mathAngle -= 60;
-//         // now that it is [0, 240]:
-//         // if <120
-//         if (mathAngle <= 120)
-//         {
-//             valueG = (255 * mathAngle) / 120;
-//         }
-//         else
-//         {
-//             // flip the value of mathAngle so I can use the 0 to 120 transfer equation.
-//             mathAngle = 120 - (mathAngle - 120);
-//             // now can proceed as normal.
-//             valueG = (255 * mathAngle) / 120;
-//         }
-//     }
-//     else
-//     {
-//         valueG = 0;
-//     }
-
-//     mathAngle = inAngle;
-//     /// Blue is min at 180 and 60(wrapping), max at 300
-//     if (inAngle > 180 || inAngle < 60)
-//     {
-//         // shift into easier math range 0 to 240 (add 180 ... I think)
-//         if (inAngle > 180)
-//         {
-//             mathAngle -= 180; // (wrapping with the +60)
-//         }
-//         else
-//         {
-//             mathAngle += 180;
-//         }
-//         // now that it is [0, 240]:
-//         // if <120
-//         if (mathAngle <= 120)
-//         {
-//             valueB = (255 * mathAngle) / 120;
-//         }
-//         else
-//         {
-//             // flip the value of mathAngle so I can use the 0 to 120 transfer equation.
-//             mathAngle = 120 - (mathAngle - 120);
-//             // now can proceed as normal.
-//             valueB = (255 * mathAngle) / 120;
-//         }
-//     }
-//     else
-//     {
-//         valueB = 0;
-//     }
-
-//     return 0;
-// }
 
 int R, G, B;
 void setColour(int inAngle)
@@ -361,40 +256,56 @@ int main(void)
 {
     initFunc();
 
-    //   int state = 0;
+    HAL_Delay(100);
+    // initialize all LEDs to red
+    for (int i = 0; i < NUM_LED; i++) setLED(i, 0, 255, 0);
+    WS2812_Send();
+    HAL_Delay(5000);
 
-    int minled = 0;
-    int maxled = 10;
+    runningPulse = TRUE;
+
     while (TRUE)
     {
-        minled = (minled + 1) % NUM_LED;
-        maxled = (maxled + 1) % NUM_LED;
-        for (int i = 0; i < NUM_LED; i++)
-        {
-            if ((i >= minled && i < maxled) || (minled > maxled && (i >= minled || i < maxled))){
-                setColour(i);
-                setLED(i, R, G, B);
-            } else {
-                setLED(i, 0, 0, 0);
-                // setLED(i, 255, 0, 0);
-            }
-                
+        // spell abcss = UNSPECIFIED;
+        spellPulse(UNSPECIFIED);
+        HAL_Delay(10);
+        if(!runningPulse){
+            runningPulse = TRUE;
         }
-        WS2812_Send();
-        HAL_Delay(1);
 
-        // for (int i = minled; i < maxled; i++)
+    }
+}
+
+        // minled = (minled + 1) % NUM_LED;
+        // maxled = (maxled + 1) % NUM_LED;
+        // for (int i = 0; i < NUM_LED; i++)
+        // {
+        //     if ((i >= 0 && i < NUM_LED) || (0 > NUM_LED && (i >= 0 || i < NUM_LED))){
+        //         setColour(i);
+        //         setLED(i, R, G, B);
+        //     } else {
+        //         setLED(i, 0, 0, 0);
+        //         // setLED(i, 255, 0, 0);
+        //     }
+                
+        // }
+        // for (int i=0; i<4; i++)
+        // {
+        //     setLED(i, 255, 0, 0);
+        // }
+        // WS2812_Send();
+        // HAL_Delay(1000);
+
+        // for (int i=0; i<4; i++)
         // {
         //     setLED(i, 0, 255, 0);
         // }
         // WS2812_Send();
         // HAL_Delay(1000);
 
-        // for (int i = minled; i < maxled; i++)
+        // for (int i=0; i<4; i++)
         // {
         //     setLED(i, 0, 0, 255);
         // }
         // WS2812_Send();
         // HAL_Delay(1000);
-    }
-}
