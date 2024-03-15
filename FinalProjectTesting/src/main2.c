@@ -138,7 +138,7 @@ void spellPulse(spell used_spell){
     tempTime = TIMERS_GetMilliSeconds();
     // ...
     if (runningPulse && tempTime > (lastUpdate + 500))
-    {    
+    {
         printf("Yes1: %d : %d\n", tempTime, lastUpdate);
         if (pulse_propegation >= NUM_LED)
         {
