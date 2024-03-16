@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#define BT_test
+
 #define UART_SPEED 9600
 #define BUFFER_SIZE 128
 #define DATA_SIZE 128
@@ -34,10 +36,18 @@ typedef struct buffer_struct
 buffer_t buffer;
 packet_t tmp_packet;
 
-uint8_t packet_id = 0;
+uint8_t in_packet_id = 0;
+uint8_t out_packet_id = 0;
+uint8_t rx_buffer[DATA_SIZE];
+int packet_ready = 0;
+uint8_t tmp_len = 0;
 
-void init()
+void packet_parser(packet_t packet, uint8_t c);
+int send_packet(uint8_t id, uint8_t length, uint8_t *data);
+
+int BT_Init()
 {
+    Uart1_Init(9600);
     buffer = (buffer_t)malloc(sizeof(struct buffer_struct));
     buffer->head = 0;
     buffer->tail = 0;
@@ -50,19 +60,93 @@ void init()
     }
 
     tmp_packet = (packet_t)malloc(sizeof(struct packet_struct));
+
+    return SUCCESS;
 }
 
-// each packet follows the format:
-// HEAD | LENGTH | ID | DATA | TAIL | CHECKSUM | END
-// where HEAD and TAIL are constant, LENGTH is the length of the data (not including the ID), ID is the packet ID, DATA is the packet data/payload, and CHECKSUM is the xor of all the bytes in the packet
+int BT_Recv(uint8_t *data)
+{
+    memset(rx_buffer, 0, DATA_SIZE);
+    if (Uart1_rx(rx_buffer, DATA_SIZE) == SUCCESS)
+    {
+        HAL_Delay(50);
 
-int packet_ready = 0;
+        int start = 0;
+        for (int i = 0; i < DATA_SIZE; i++)
+        {
+            if (rx_buffer[i] == HEAD)
+            {
+                start = i;
+                break;
+            }
+        }
+
+        for (int i = 0; i < DATA_SIZE; i++)
+        {
+            packet_parser(tmp_packet, rx_buffer[(start + i) % DATA_SIZE]);
+            if (packet_ready && (tmp_packet->id > in_packet_id || tmp_packet->id == 0))
+            {
+                packet_ready = 0;
+                in_packet_id = tmp_packet->id;
+                buffer->buffer[buffer->tail]->id = tmp_packet->id;
+                buffer->buffer[buffer->tail]->length = tmp_packet->length;
+                for (int j = 0; j < tmp_packet->length; j++)
+                {
+                    buffer->buffer[buffer->tail]->data[j] = tmp_packet->data[j];
+                }
+                buffer->tail = (buffer->tail + 1) % BUFFER_SIZE;
+                if (buffer->tail == buffer->head)
+                {
+                    buffer->full = 1;
+                }
+                buffer->empty = 0;
+            }
+        }
+    }
+
+    if (!buffer->empty)
+    {
+        // printf("data: '");
+        for (int i = 0; i < buffer->buffer[buffer->head]->length; i++)
+        {
+            // printf("%c", buffer->buffer[buffer->head]->data[i]);
+            data[i] = buffer->buffer[buffer->head]->data[i];
+        }
+        // printf("'\n");
+
+        // send_packet(buffer->buffer[buffer->head]->id, buffer->buffer[buffer->head]->length, buffer->buffer[buffer->head]->data);
+        tmp_len = buffer->buffer[buffer->head]->length;
+
+        buffer->head = (buffer->head + 1) % BUFFER_SIZE;
+        if (buffer->head == buffer->tail)
+        {
+            buffer->empty = 1;
+        }
+        buffer->full = 0;
+        return tmp_len;
+    }
+    return ERROR;
+}
+
+int BT_Send(uint8_t *data, int len)
+{
+    send_packet(out_packet_id, len, data);
+    out_packet_id = (out_packet_id + 1) % 256;
+    return SUCCESS;
+}
+
+/**
+ * each packet follows the format:
+ * HEAD | LENGTH | ID | DATA | TAIL | CHECKSUM | END
+ * where HEAD and TAIL are constant, LENGTH is the length of the data (not including the ID),
+ * ID is the packet ID, DATA is the packet data/payload, and CHECKSUM is the xor of all the
+ * bytes in the id & packet
+ * */
 
 void packet_parser(packet_t packet, uint8_t c)
 {
     static uint8_t state = 0;
     static int index = 0;
-    // printf("%x %c\n", c, c);
     switch (state)
     {
     case 0:
@@ -74,32 +158,25 @@ void packet_parser(packet_t packet, uint8_t c)
         break;
     case 1:
         packet->length = c;
-        // printf("%d\n", packet->length);
         state = 2;
         break;
     case 2:
         packet->id = c;
-        // printf("%d\n", packet->id);
         packet->checksum = c;
-        // printf("id %d %d\n", c, packet->checksum);
         if (packet->length == 0)
         {
             state = 4;
-            // printf("data4\n");
         }
         else
         {
             state = 3;
-            // printf("data3\n");
             index = 0;
         }
         break;
     case 3:
         packet->data[index] = c;
-        // printf("%d\n", packet->checksum);
         packet->checksum ^= c;
         index++;
-        // printf("ck %d %d %c\n", c, packet->checksum, c);
         if (index == packet->length)
         {
             state = 4;
@@ -153,7 +230,7 @@ void packet_parser(packet_t packet, uint8_t c)
 
 uint8_t tx_tmp[DATA_SIZE + 7];
 
-void send_packet(uint8_t id, uint8_t length, uint8_t *data)
+int send_packet(uint8_t id, uint8_t length, uint8_t *data)
 {
     uint8_t checksum = 0;
     tx_tmp[0] = HEAD;
@@ -167,128 +244,38 @@ void send_packet(uint8_t id, uint8_t length, uint8_t *data)
     }
     tx_tmp[length + 3] = TAIL;
     tx_tmp[length + 4] = checksum;
-    // printf("ck %d %x %c %c\n", checksum, checksum, checksum, data[0]);
     tx_tmp[length + 5] = END1;
     tx_tmp[length + 6] = END2;
-    Uart1_tx(tx_tmp, length + 7);
+    if (Uart1_tx(tx_tmp, length + 7) == ERROR)
+    {
+        return ERROR;
+    }
     HAL_Delay(5);
+    return SUCCESS;
 }
 
+#ifdef BT_test
 int main(void)
 {
     BOARD_Init();
-    Uart1_Init(9600);
-    init(&buffer, &tmp_packet);
-    uint8_t data[DATA_SIZE];
-    // uint8_t last_data[DATA_SIZE];
+    BT_Init(&buffer, &tmp_packet);
     printf("init done\n");
 
-    uint8_t c;
+    uint8_t data[DATA_SIZE];
+
     while (1)
     {
-        // printf("\n");
-        // printf("%04x %ld\n", USART1->SR, (USART1->SR >> 5) & 1);
-        memset(data, 0, DATA_SIZE);
-        if (Uart1_rx(data, DATA_SIZE) == 1)
+        int len = BT_Recv(data);
+        if (len != ERROR)
         {
-
-            // for (int i = 0; i < DATA_SIZE; i++)
-            // {
-            //     printf("%c %02x  ", data[i], data[i]);
-            // }
-            // printf("\n");
-            // Uart1_tx(data, DATA_SIZE);
-            // Uart1_rx(data, DATA_SIZE);
-            // memset(data, 0, DATA_SIZE);
-            HAL_Delay(100);
-            // continue;
-
-            // printf("IM VERY LOUD\n");
-
-            int start = 0;
-            for (int i = 0; i < DATA_SIZE; i++)
-            {
-                if (data[i] == HEAD)
-                {
-                    start = i;
-                    break;
-                }
-            }
-
-            for (int i = 0; i < DATA_SIZE; i++)
-            {
-                c = data[(start + i) % DATA_SIZE];
-                // printf("%c %02x  ", c, c);
-                packet_parser(tmp_packet, c);
-                // printf("packet: %d %d %d %d %d\n", packet_id, tmp_packet->id, packet_ready, tmp_packet->id > packet_id, tmp_packet->id == 0);
-                if (packet_ready && (tmp_packet->id > packet_id || tmp_packet->id == 0))
-                {
-                    // printf("packet ready\n");
-                    packet_ready = 0;
-                    packet_id = tmp_packet->id;
-                    buffer->buffer[buffer->tail]->id = tmp_packet->id;
-                    buffer->buffer[buffer->tail]->length = tmp_packet->length;
-                    for (int j = 0; j < tmp_packet->length; j++)
-                    {
-                        buffer->buffer[buffer->tail]->data[j] = tmp_packet->data[j];
-                    }
-                    buffer->tail = (buffer->tail + 1) % BUFFER_SIZE;
-                    if (buffer->tail == buffer->head)
-                    {
-                        buffer->full = 1;
-                    }
-                    buffer->empty = 0;
-                }
-            }
-        }
-
-        while (!buffer->empty)
-        {
-            // if (buffer->buffer[buffer->head]->data[0] > packet_id)
-            // {
-            // packet_id = buffer->buffer[buffer->head]->data[0];
-            // printf("buffer not empty\n");
-            // printf("id/packet: %d/%x\n", buffer->buffer[buffer->head]->id, packet_id);
-            // printf("length: %d\n", buffer->buffer[buffer->head]->length);
             printf("data: '");
-            for (int i = 0; i < buffer->buffer[buffer->head]->length; i++)
+            for (int i = 0; i < len; i++)
             {
-                printf("%c", buffer->buffer[buffer->head]->data[i]);
-                // printf("data[%d]: %d\n", i, buffer->buffer[buffer->head]->data[i]);
+                printf("%c", data[i]);
             }
             printf("'\n");
-            // } else {
-            //     printf("packet id: %x\n", buffer->buffer[buffer->head]->data[0]);
-            // }
-
-            send_packet(buffer->buffer[buffer->head]->id, buffer->buffer[buffer->head]->length, buffer->buffer[buffer->head]->data);
-
-            buffer->head = (buffer->head + 1) % BUFFER_SIZE;
-            if (buffer->head == buffer->tail)
-            {
-                buffer->empty = 1;
-            }
-            buffer->full = 0;
+            BT_Send(data, len);
         }
-
-        // Uart1_rx(data, 128);
-        // HAL_Delay(100);
     }
-    // uint8_t data[128];
-    // memset(data, 0, 128);
-    // while (1)
-    // {
-    //     // memset(data, 0, 128);
-    //     Uart1_rx(data, 128);                  // read data from bluetooth
-    //     printf("data: %s\n", data);           // print data to console
-    //     Uart1_tx(data, strlen((char *)data)); // send data to bluetooth
-    //     HAL_Delay(1000);
-    //     // if uart successfully reads data, clear the buffer
-    //     // this should not work, and should cause
-    //     Uart1_rx(data, 128);
-    //     for (int i = 0; i < 128; i++)
-    //     {
-    //         data[i] = 0;
-    //     }
-    // }
 }
+#endif

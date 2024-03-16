@@ -13,6 +13,8 @@ TAIL = b"\xB9"
 END1 = b"\x0D"
 END2 = b"\x0A"
 
+MAX_DATA_LEN = 127
+
 DEBUG_SEND = False
 DEBUG_RECV = False
 DEBUG_RECV_DROP = True
@@ -154,7 +156,7 @@ def init() -> int:
         for device in devices:
             UART.discover(device)
             uarts.append(UART(device))
-            in_packet_ids.append(0)
+            in_packet_ids.append(100)
             out_packet_ids.append(0)
 
         return len(uarts)
@@ -207,9 +209,12 @@ def recv() -> list[list[str]]:
         raise
 
 
-def send(uart_id: int, data: str):
+def send(uart_id: int, data: str) -> bool:
     global uarts, out_packet_ids
-    # tmp = (out_packet_ids[uart_id], data)
+
+    if len(data) > MAX_DATA_LEN:
+        return False
+
     if DEBUG_SEND:
         print(
             "Sending: {0}: {1}, UART: {2}".format(
@@ -217,8 +222,8 @@ def send(uart_id: int, data: str):
             )
         )
     uarts[uart_id].write(get_data_bytes((out_packet_ids[uart_id], data)))
-    time.sleep(0.5)
     out_packet_ids[uart_id] = (out_packet_ids[uart_id] + 1) % 256
+    return True
 
 
 def run(f: Callable[[], Any]):
@@ -231,33 +236,52 @@ def run(f: Callable[[], Any]):
     ble.run_mainloop_with(f)
 
 
-# Main function implements the program logic so it can run in a background
-# thread.  Most platforms require the main thread to handle GUI events and other
-# asyncronous events like BLE actions.  All of the threading logic is taken care
-# of automatically though and you just need to provide a main function that uses
-# the BLE provider.
-def interface_test():
-    alphabet = "abcdefghijklmnopqrstuvwxyz\n"
-    alphabet_idx = 0
-
-    device_count = init()
-
-    # Once connected do everything else in a try/finally to make sure the device
-    # is disconnected when done.
-    while True:
-        queue = recv()
-        for i in range(device_count):
-
-            # TESTING: handle incoming packets, send outgoing packets
-            for data in queue[i]:
-                print(f"handled: {data}")
-
-            send(i, f"{alphabet[alphabet_idx:(min(alphabet_idx+5, len(alphabet)))]}")
-
-        alphabet_idx += 1
-        if alphabet_idx == len(alphabet):
-            alphabet_idx = 0
-
-
 if __name__ == "__main__":
-    run(interface_test)
+    # Main function implements the program logic so it can run in a background
+    # thread.  Most platforms require the main thread to handle GUI events and other
+    # asyncronous events like BLE actions.  All of the threading logic is taken care
+    # of automatically though and you just need to provide a main function that uses
+    # the BLE provider.
+    def test():
+        alphabet = "abcdefghijklmnopqrstuvwxyz\n"
+        alphabet_idx = 0
+        last_received = 0
+
+        device_count = init()
+
+        packet_counts = [0 for _ in range(device_count)]
+        drop_counts = [0 for _ in range(device_count)]
+
+        # Once connected do everything else in a try/finally to make sure the device
+        # is disconnected when done.
+        for r in range(1000):
+            print(r)
+            queue = recv()
+            for i in range(device_count):
+
+                # TESTING: handle incoming packets, send outgoing packets
+                for data in queue[i]:
+                    # print(f"handled: {data}")
+                    tmp = alphabet.find(data)
+                    # print(tmp, last_received)
+                    if tmp != (last_received + 1) % len(alphabet):
+                        lost = (tmp - last_received - 1 + len(alphabet)) % len(alphabet)
+                        drop_counts[i] += lost
+                        print(f"Packet loss: {lost}")
+                    last_received = tmp
+
+                send(
+                    i,
+                    f"{alphabet[alphabet_idx:(min(alphabet_idx+5, len(alphabet)))]}",
+                )
+                packet_counts[i] += 1
+
+            alphabet_idx += 1
+            if alphabet_idx == len(alphabet):
+                alphabet_idx = 0
+        
+        print(f"Packet counts: {packet_counts}")
+        print(f"Drop counts: {drop_counts}")
+        print(f"Drop rates: {[drop_counts[i]/packet_counts[i] for i in range(device_count)]}")
+
+    run(test)
