@@ -171,7 +171,7 @@ void send_packet(uint8_t id, uint8_t length, uint8_t *data)
     tx_tmp[length + 5] = END1;
     tx_tmp[length + 6] = END2;
     Uart1_tx(tx_tmp, length + 7);
-    // HAL_Delay(5);
+    HAL_Delay(5);
 }
 
 int main(void)
@@ -200,7 +200,7 @@ int main(void)
             // Uart1_tx(data, DATA_SIZE);
             // Uart1_rx(data, DATA_SIZE);
             // memset(data, 0, DATA_SIZE);
-            HAL_Delay(500);
+            HAL_Delay(100);
             // continue;
 
             // printf("IM VERY LOUD\n");

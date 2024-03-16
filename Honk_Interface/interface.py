@@ -13,44 +13,23 @@ END1 = b"\x0D"
 END2 = b"\x0A"
 
 DEBUG_SEND = False
-DEBUG_RECV = True
+DEBUG_RECV = False
 
 # Get the BLE provider for the current platform.
 ble = Adafruit_BluefruitLE.get_provider()
 
 devices = list()
 uarts = list()
-packet_ids = list()
-
-
-# def get_data_bytes(id: int, data: str):
-#     out = HEAD + id.to_bytes(1, "big") + data.encode("utf-8") + TAIL + END1 + END2
-#     return out + (b"\x00" * ((12 if len(out) < 128 else 256) - len(out)))
-
-
-# def get_data_bytes(id: int, data: bytes):
-#     out = HEAD + id.to_bytes(1, "big") + data + TAIL + END1 + END2
-#     return out + (b"\x00" * ((128 if len(out) < 128 else 256) - len(out)))
-
-
-# def get_data_bytes(data: tuple[int, bytes]):
-#     id, data = data
-#     out = HEAD + id.to_bytes(1, "big") + data + TAIL + END1 + END2
-#     # return out
-#     return out + (b"\x00" * ((128 if len(out) < 128 else 256) - len(out)))
+in_packet_ids = list()
+out_packet_ids = list()
 
 
 def get_data_bytes(data: tuple[int, str]):
-    # global packet_id
     id, data = data
-
-    # make data 16 bytes long
-    # data = data + " " * (16 - len(data))
 
     cksum = id
     for byte in data.encode("utf-8"):
         cksum ^= byte
-    # packet_id += 1
     return (
         HEAD
         + (len(data)).to_bytes(1, "big")
@@ -62,8 +41,6 @@ def get_data_bytes(data: tuple[int, str]):
         + END1
         + END2
     )
-    # return out
-    # return out + (b"\xff" * ((26 if len(out) < 126 else 254) - len(out))) + END1 + END2
 
 
 tmp_id = None
@@ -77,7 +54,6 @@ ready = False
 
 def parse_packet(input):
     global tmp_id, tmp_len, tmp_data, tmp_cksum, state, data_index, ready
-    # print(input, hex(input))
     if state == 0:
         if input == int.from_bytes(HEAD):
             state = 1
@@ -133,11 +109,10 @@ def parse_packet(input):
 # the BLE provider.
 def main():
     global tmp_id, tmp_data, ready  # , packet_id
-    # alphabet = "".join(reversed("abcdefghijklmnopqrstuvwxyz"))
     alphabet = "abcdefghijklmnopqrstuvwxyz\n"
-    # print(alphabet)
     j = 0
     count = 0
+
     # Clear any cached data because both bluez and CoreBluetooth have issues with
     # caching data and it going stale.
     ble.clear_cached_data()
@@ -158,9 +133,6 @@ def main():
         adapter.start_scan()
         # Search for the first UART device found (will time out after 60 seconds
         # but you can specify an optional timeout_sec parameter to change it).
-        # device = UART.find_device()
-        # if device is None:
-        #     raise RuntimeError('Failed to find UART device!')
         known = set()
         for _ in range(5):
             found = set(UART.find_devices())
@@ -190,39 +162,23 @@ def main():
         for device in devices:
             UART.discover(device)
             uarts.append(UART(device))
-            packet_ids.append(0)
+            in_packet_ids.append(0)
+            out_packet_ids.append(0)
 
         # Once service discovery is complete create an instance of the service
         # and start interacting with it.
-        # for device in devices:
-        # uart = UART(device)
-
-        # Write a string to the TX characteristic.
-        # for uart in uarts:
-        #     uart.write(b"Hello World!\r\n")
-        #     print("Sent 'Hello world!' to the device.")
 
         in_queues = [list() for _ in uarts]
         out_queues = [list() for _ in uarts]
-        for i in range(len(out_queues)):
-            # out_queues[i].append((i, "Hello World!\n"))
-            # uarts[i].write("hello, world!\n".encode("utf-8"))
-            packet_ids[i] += 1
 
         while True:
             for i, uart in enumerate(uarts):
-                # print("UART: {0}".format(i))
                 # Now wait up to one minute to receive data from the device.
-                # print('Waiting up to 60 seconds to receive data from the device...')
                 received = uart.read(timeout_sec=1)
                 if received is not None:
-                    # Received data, print it out.
-                    # print("Received: {0}".format(received))
                     for byte in received:
-                        # print('b', byte, hex(byte))
                         parse_packet(byte)
                         if ready:
-                            # print(tmp_data, [type(c) for c in tmp_data])
                             in_queues[i].append(
                                 (
                                     tmp_id,
@@ -238,28 +194,27 @@ def main():
                                     ),
                                 )
                             )
+                            if tmp_id != in_packet_ids[i]:
+                                print(
+                                    "Packet ID mismatch: {0} != {1}".format(
+                                        tmp_id, in_packet_ids[i]
+                                    )
+                                )
                             ready = False
-                else:
-                    # Timeout waiting for data, None is returned.
-                    # print("Received no data on UART {0}!".format(i))
-                    # break
-                    pass
+                            in_packet_ids[i] = (tmp_id + 1) % 256
 
+                # TESTING: handle incoming packets, send outgoing packets
                 while len(in_queues[i]) > 0:
                     id, data = in_queues[i].pop(0)
                     if DEBUG_RECV:
                         print("Received: {0}: {1}, UART: {2}".format(id, data, i))
 
-                # if count % 60 == 0:
-                out_queues[i].append((packet_ids[i], f"{alphabet[j:j+2]}"))
-                packet_ids[i] = (packet_ids[i] + 1) % 256
+                out_queues[i].append(
+                    (out_packet_ids[i], f"{alphabet[j:(min(j+5, len(alphabet)))]}")
+                )
+                out_packet_ids[i] = (out_packet_ids[i] + 1) % 256
 
                 while len(out_queues[i]) > 0:
-                    # print(
-                    #     get_data_bytes(out_queues[i][0]),
-                    #     len(get_data_bytes(out_queues[i][0])),
-                    #     # packet_id,
-                    # )
                     to_send = out_queues[i][0]
                     if DEBUG_SEND:
                         print(
@@ -268,10 +223,8 @@ def main():
                             )
                         )
                     uart.write(get_data_bytes(out_queues[i].pop(0)))
-                    time.sleep(0.1)
-                    # print("Sent data to UART {0}.".format(i))
+                    time.sleep(0.5)
 
-            # if count % 60 == 0:
             j += 1
             if j == len(alphabet):
                 j = 0
