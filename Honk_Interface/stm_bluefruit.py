@@ -3,6 +3,7 @@
 # Author: Tony DiCola
 # import atexit
 import time
+from typing import Any, Callable
 
 import Adafruit_BluefruitLE
 from Adafruit_BluefruitLE.services import UART
@@ -14,10 +15,12 @@ END2 = b"\x0A"
 
 DEBUG_SEND = False
 DEBUG_RECV = False
+DEBUG_RECV_DROP = True
 
 # Get the BLE provider for the current platform.
 ble = Adafruit_BluefruitLE.get_provider()
 
+adapter = None
 devices = list()
 uarts = list()
 in_packet_ids = list()
@@ -102,17 +105,8 @@ def parse_packet(input):
             state = 0
 
 
-# Main function implements the program logic so it can run in a background
-# thread.  Most platforms require the main thread to handle GUI events and other
-# asyncronous events like BLE actions.  All of the threading logic is taken care
-# of automatically though and you just need to provide a main function that uses
-# the BLE provider.
-def main():
-    global tmp_id, tmp_data, ready  # , packet_id
-    alphabet = "abcdefghijklmnopqrstuvwxyz\n"
-    j = 0
-    count = 0
-
+def init() -> None:
+    global ble, adapter, devices, uarts, in_packet_ids, out_packet_ids
     # Clear any cached data because both bluez and CoreBluetooth have issues with
     # caching data and it going stale.
     ble.clear_cached_data()
@@ -153,8 +147,6 @@ def main():
         device.connect()  # Will time out after 60 seconds, specify timeout_sec parameter
     # to change the timeout.
 
-    # Once connected do everything else in a try/finally to make sure the device
-    # is disconnected when done.
     try:
         # Wait for service discovery to complete for the UART service.  Will
         # time out after 60 seconds (specify timeout_sec parameter to override).
@@ -165,79 +157,107 @@ def main():
             in_packet_ids.append(0)
             out_packet_ids.append(0)
 
-        # Once service discovery is complete create an instance of the service
-        # and start interacting with it.
+        return len(uarts)
 
-        in_queues = [list() for _ in uarts]
-        out_queues = [list() for _ in uarts]
+    except Exception as e:
+        print("Error: {0}".format(e))
+        for device in devices:
+            device.disconnect()
+        raise
 
-        while True:
-            for i, uart in enumerate(uarts):
-                # Now wait up to one minute to receive data from the device.
-                received = uart.read(timeout_sec=1)
-                if received is not None:
-                    for byte in received:
-                        parse_packet(byte)
-                        if ready:
-                            in_queues[i].append(
-                                (
-                                    tmp_id,
-                                    "".join(
-                                        [
-                                            (
-                                                ""
-                                                if int.from_bytes(c) >= 128
-                                                else c.decode("utf-8")
-                                            )
-                                            for c in tmp_data
-                                        ]
-                                    ),
-                                )
-                            )
-                            if tmp_id != in_packet_ids[i]:
-                                print(
-                                    "Packet ID mismatch: {0} != {1}".format(
-                                        tmp_id, in_packet_ids[i]
+
+def recv() -> list[list[str]]:
+    global tmp_id, tmp_data, ready, uarts, in_packet_ids
+    in_queue = [list() for _ in uarts]
+    try:
+        for i, uart in enumerate(uarts):
+            # Now wait up to one second to receive data from the device.
+            received = uart.read(timeout_sec=1)
+            if received is not None:
+                for byte in received:
+                    parse_packet(byte)
+                    if ready:
+                        in_queue[i].append(
+                            "".join(
+                                [
+                                    (
+                                        ""
+                                        if int.from_bytes(c) >= 128
+                                        else c.decode("utf-8")
                                     )
-                                )
-                            ready = False
-                            in_packet_ids[i] = (tmp_id + 1) % 256
-
-                # TESTING: handle incoming packets, send outgoing packets
-                while len(in_queues[i]) > 0:
-                    id, data = in_queues[i].pop(0)
-                    if DEBUG_RECV:
-                        print("Received: {0}: {1}, UART: {2}".format(id, data, i))
-
-                out_queues[i].append(
-                    (out_packet_ids[i], f"{alphabet[j:(min(j+5, len(alphabet)))]}")
-                )
-                out_packet_ids[i] = (out_packet_ids[i] + 1) % 256
-
-                while len(out_queues[i]) > 0:
-                    to_send = out_queues[i][0]
-                    if DEBUG_SEND:
-                        print(
-                            "Sending: {0}: {1}, UART: {2}".format(
-                                to_send[0], to_send[1], i
+                                    for c in tmp_data
+                                ]
                             )
                         )
-                    uart.write(get_data_bytes(out_queues[i].pop(0)))
-                    time.sleep(0.5)
+                        if DEBUG_RECV:
+                            print("Received: {0}, UART: {1}".format(in_queue[i][-1], i))
+                        if tmp_id != in_packet_ids[i] and DEBUG_RECV_DROP:
+                            print(
+                                "Packet ID mismatch: {0} packets dropped".format(
+                                    (tmp_id - in_packet_ids[i] + 256) % 256
+                                )
+                            )
+                        ready = False
+                        in_packet_ids[i] = (tmp_id + 1) % 256
+        return in_queue
+    except Exception as e:
+        print("Error: {0}".format(e))
+        for device in devices:
+            device.disconnect()
+        raise
 
-            j += 1
-            if j == len(alphabet):
-                j = 0
-            count += 1
-    finally:
-        # Make sure device is disconnected on exit.
-        device.disconnect()
+
+def send(uart_id: int, data: str):
+    global uarts, out_packet_ids
+    # tmp = (out_packet_ids[uart_id], data)
+    if DEBUG_SEND:
+        print(
+            "Sending: {0}: {1}, UART: {2}".format(
+                out_packet_ids[uart_id], data, uart_id
+            )
+        )
+    uarts[uart_id].write(get_data_bytes((out_packet_ids[uart_id], data)))
+    time.sleep(0.5)
+    out_packet_ids[uart_id] = (out_packet_ids[uart_id] + 1) % 256
 
 
-# Initialize the BLE system.  MUST be called before other BLE calls!
-ble.initialize()
+def run(f: Callable[[], Any]):
+    # Initialize the BLE system.  MUST be called before other BLE calls!
+    ble.initialize()
 
-# Start the mainloop to process BLE events, and run the provided function in
-# a background thread.  When the provided main function stops running, returns
-# an integer status code, or throws an error the program will exit.
-ble.run_mainloop_with(main)
+    # Start the mainloop to process BLE events, and run the provided function in
+    # a background thread.  When the provided main function stops running, returns
+    # an integer status code, or throws an error the program will exit.
+    ble.run_mainloop_with(f)
+
+
+# Main function implements the program logic so it can run in a background
+# thread.  Most platforms require the main thread to handle GUI events and other
+# asyncronous events like BLE actions.  All of the threading logic is taken care
+# of automatically though and you just need to provide a main function that uses
+# the BLE provider.
+def interface_test():
+    alphabet = "abcdefghijklmnopqrstuvwxyz\n"
+    alphabet_idx = 0
+
+    device_count = init()
+
+    # Once connected do everything else in a try/finally to make sure the device
+    # is disconnected when done.
+    while True:
+        queue = recv()
+        for i in range(device_count):
+
+            # TESTING: handle incoming packets, send outgoing packets
+            for data in queue[i]:
+                print(f"handled: {data}")
+
+            send(i, f"{alphabet[alphabet_idx:(min(alphabet_idx+5, len(alphabet)))]}")
+
+        alphabet_idx += 1
+        if alphabet_idx == len(alphabet):
+            alphabet_idx = 0
+
+
+if __name__ == "__main__":
+    run(interface_test)
