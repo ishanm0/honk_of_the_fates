@@ -105,7 +105,7 @@ def parse_packet(input):
             state = 0
 
 
-def init() -> None:
+def init() -> int:
     global ble, adapter, devices, uarts, in_packet_ids, out_packet_ids
     # Clear any cached data because both bluez and CoreBluetooth have issues with
     # caching data and it going stale.
@@ -132,7 +132,7 @@ def init() -> None:
             found = set(UART.find_devices())
             new = found - known
             for device in new:
-                print("Found UART: {0} [{1}]".format(device.name, device.id))
+                print(f"Found UART {len(known)}: {device.name} [{device.id}]")
             known.update(new)
             time.sleep(1.0)
         if len(known) == 0:
