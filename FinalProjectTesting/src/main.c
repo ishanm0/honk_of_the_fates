@@ -131,11 +131,14 @@ uint32_t currDelay = 0;
 // PWM_Stop(PWM_4);
 // HAL_Delay(100);
 // when called will either start a new IR signal or service the active one (depending on if there is an active one).
-void sendIRsignal(int payerID){
+int sendIRsignal(int payerID){
+    if(playerID == 0) return; // if input is 0, do not do anything
+    
     // check current time
     tempTime = TIMERS_GetMilliSeconds();
     // ...
-    if (runningIRpulses && tempTime > (lastUpdate + currDelay))
+    
+    if (runningIRpulses && tempTime >= (lastUpdate + currDelay))
     {
         // printf("Yes1: %d : %d\n", tempTime, lastUpdate);
         if (signal_propegation >= (playerID * 3))
@@ -144,27 +147,33 @@ void sendIRsignal(int payerID){
             PWM_Stop(PWM_4); // double check that it is stopped
             signal_propegation = 0;
             currDelay = MIN_WAIT_BETWEEN_PULSES;
+            return 1;
         }
         
         switch(currDelay){
             case ON_TIME:
-                // Turns the pwm on to generate a pulse.
-                PWM_Start(PWM_4);
-                
+                // turns off the pwm to give a pause time
+                PWM_Stop(PWM_4);
+                currDelay = OFF_TIME;
+                signal_propegation ++; // increment to track the newly completed pulse.
                 break;
             case OFF_TIME:
-                // st;
+                // Turns the pwm on to generate a pulse.
+                PWM_Start(PWM_4);
+                currDelay = ON_TIME;
                 break;
         }
         // update last update time store
         lastUpdate = TIMERS_GetMilliSeconds();
-    } else if (tempTime > (lastUpdate + 500)){
+    } else if (!runningIRpulses && tempTime > (lastUpdate + MIN_WAIT_BETWEEN_PULSES)){
         // start a new pulse
         runningIRpulses = TRUE;
         PWM_Start(PWM_4);
         currDelay = ONTIME;
         signal_propegation = 0;
+        lastUpdate = TIMERS_GetMilliSeconds();
     }
+    return 0;
 }
 
 // so you can do it without a set spell
@@ -220,100 +229,104 @@ int main(void) {
     initFunc();
     
     while (TRUE) {
+
+        HAL_Delay(10);
+        sendIRsignal(2);
+        
         // printf("Hello World\r\n");
-        HAL_Delay(500);
+        // HAL_Delay(500);
         
-        PWM_Start(PWM_4);
-        HAL_Delay(50);
-        PWM_Stop(PWM_4);
-        HAL_Delay(100);
+        // PWM_Start(PWM_4);
+        // HAL_Delay(50);
+        // PWM_Stop(PWM_4);
+        // HAL_Delay(100);
 
-        PWM_Start(PWM_4);
-        HAL_Delay(50);
-        PWM_Stop(PWM_4);
-        HAL_Delay(100);
+        // PWM_Start(PWM_4);
+        // HAL_Delay(50);
+        // PWM_Stop(PWM_4);
+        // HAL_Delay(100);
 
-        PWM_Start(PWM_4);
-        HAL_Delay(50);
-        PWM_Stop(PWM_4);
+        // PWM_Start(PWM_4);
+        // HAL_Delay(50);
+        // PWM_Stop(PWM_4);
 
-        HAL_Delay(500);
+        // HAL_Delay(500);
         
-        PWM_Start(PWM_4);
-        HAL_Delay(50);
-        PWM_Stop(PWM_4);
-        HAL_Delay(100);
+        // PWM_Start(PWM_4);
+        // HAL_Delay(50);
+        // PWM_Stop(PWM_4);
+        // HAL_Delay(100);
 
-        PWM_Start(PWM_4);
-        HAL_Delay(50);
-        PWM_Stop(PWM_4);
-        HAL_Delay(100);
+        // PWM_Start(PWM_4);
+        // HAL_Delay(50);
+        // PWM_Stop(PWM_4);
+        // HAL_Delay(100);
 
-        PWM_Start(PWM_4);
-        HAL_Delay(50);
-        PWM_Stop(PWM_4);
-        HAL_Delay(100);
+        // PWM_Start(PWM_4);
+        // HAL_Delay(50);
+        // PWM_Stop(PWM_4);
+        // HAL_Delay(100);
 
-        PWM_Start(PWM_4);
-        HAL_Delay(50);
-        PWM_Stop(PWM_4);
+        // PWM_Start(PWM_4);
+        // HAL_Delay(50);
+        // PWM_Stop(PWM_4);
 
-        HAL_Delay(500);
+        // HAL_Delay(500);
         
-        PWM_Start(PWM_4);
-        HAL_Delay(50);
-        PWM_Stop(PWM_4);
-        HAL_Delay(100);
+        // PWM_Start(PWM_4);
+        // HAL_Delay(50);
+        // PWM_Stop(PWM_4);
+        // HAL_Delay(100);
 
-        PWM_Start(PWM_4);
-        HAL_Delay(50);
-        PWM_Stop(PWM_4);
-        HAL_Delay(100);
+        // PWM_Start(PWM_4);
+        // HAL_Delay(50);
+        // PWM_Stop(PWM_4);
+        // HAL_Delay(100);
 
-        PWM_Start(PWM_4);
-        HAL_Delay(50);
-        PWM_Stop(PWM_4);
-        HAL_Delay(100);
+        // PWM_Start(PWM_4);
+        // HAL_Delay(50);
+        // PWM_Stop(PWM_4);
+        // HAL_Delay(100);
 
-        PWM_Start(PWM_4);
-        HAL_Delay(50);
-        PWM_Stop(PWM_4);
-        HAL_Delay(100);
+        // PWM_Start(PWM_4);
+        // HAL_Delay(50);
+        // PWM_Stop(PWM_4);
+        // HAL_Delay(100);
 
-        PWM_Start(PWM_4);
-        HAL_Delay(50);
-        PWM_Stop(PWM_4);
+        // PWM_Start(PWM_4);
+        // HAL_Delay(50);
+        // PWM_Stop(PWM_4);
 
-        HAL_Delay(500);
+        // HAL_Delay(500);
         
-        PWM_Start(PWM_4);
-        HAL_Delay(50);
-        PWM_Stop(PWM_4);
-        HAL_Delay(100);
+        // PWM_Start(PWM_4);
+        // HAL_Delay(50);
+        // PWM_Stop(PWM_4);
+        // HAL_Delay(100);
 
-        PWM_Start(PWM_4);
-        HAL_Delay(50);
-        PWM_Stop(PWM_4);
-        HAL_Delay(100);
+        // PWM_Start(PWM_4);
+        // HAL_Delay(50);
+        // PWM_Stop(PWM_4);
+        // HAL_Delay(100);
 
-        PWM_Start(PWM_4);
-        HAL_Delay(50);
-        PWM_Stop(PWM_4);
-        HAL_Delay(100);
+        // PWM_Start(PWM_4);
+        // HAL_Delay(50);
+        // PWM_Stop(PWM_4);
+        // HAL_Delay(100);
 
-        PWM_Start(PWM_4);
-        HAL_Delay(50);
-        PWM_Stop(PWM_4);
-        HAL_Delay(100);
+        // PWM_Start(PWM_4);
+        // HAL_Delay(50);
+        // PWM_Stop(PWM_4);
+        // HAL_Delay(100);
 
-        PWM_Start(PWM_4);
-        HAL_Delay(50);
-        PWM_Stop(PWM_4);
-        HAL_Delay(100);
+        // PWM_Start(PWM_4);
+        // HAL_Delay(50);
+        // PWM_Stop(PWM_4);
+        // HAL_Delay(100);
 
-        PWM_Start(PWM_4);
-        HAL_Delay(50);
-        PWM_Stop(PWM_4);
+        // PWM_Start(PWM_4);
+        // HAL_Delay(50);
+        // PWM_Stop(PWM_4);
 
         // printf(">angle:%ld:%d\n", timeStamp, angle);
         // printf(">ADC:%d\n", readADC);
