@@ -9,6 +9,7 @@
 #include <buttons.h>
 #include <timers.h>
 #include "IR.h"
+#include "neopixel.c"
 
 #define NO_BUTTON 0x0 // no buttons pressed
 #define BUTTON_1 0x1 // button 0 pressed
@@ -27,7 +28,7 @@ typedef enum { // see google doc stm32 state machine
 void uart_receive() {
     // receive packet from stm32
     // return packet
-    
+
 }
 
 void uart_send() {
@@ -102,7 +103,7 @@ int main(void) {
                         char *color = "white";
                     }
                     // send packet
-                    uart_send(color); // not a real function, just pseudo code
+                    uart_send(*color); // not a real function, just pseudo code
                     state = STATE_WAIT; // change the state to STATE_START
                 }
                 break;
