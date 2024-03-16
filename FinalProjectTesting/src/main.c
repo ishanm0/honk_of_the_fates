@@ -115,54 +115,55 @@ int loggarithmatizeADC(int ADCin){
 }
 
 // pulser
-int runningPulse = FALSE; // is s pulse animation active
-int pulse_propegation = 0;
-typedef enum{
-    ROCK,
-    PAPER,
-    SISSORS,
-    UNSPECIFIED
-}spell;
+int runningIRpulses = FALSE; // is s pulse animation active
+int signal_propegation = 0;
+int ON_TIME = 50; // microseconds to have pwm signal on
+int OFF_TIME = 100; // microseconds to have pwm signal off between sucessive on pules
+int MIN_WAIT_BETWEEN_PULSES = 500 // minimum microseconds between unique complete signals
 
 uint32_t lastUpdate = 0;
 uint32_t tempTime = 0;
+uint32_t currDelay = 0;
 // uint32_t TIMERS_GetMilliSeconds(void);
 
-void spellPulse(spell used_spell){
+// PWM_Start(PWM_4);
+// HAL_Delay(50);
+// PWM_Stop(PWM_4);
+// HAL_Delay(100);
+// when called will either start a new IR signal or service the active one (depending on if there is an active one).
+void sendIRsignal(int payerID){
     // check current time
     tempTime = TIMERS_GetMilliSeconds();
     // ...
-    if (runningPulse && tempTime > (lastUpdate + 500))
+    if (runningIRpulses && tempTime > (lastUpdate + currDelay))
     {
-        printf("Yes1: %d : %d\n", tempTime, lastUpdate);
-        if (pulse_propegation >= NUM_LED)
+        // printf("Yes1: %d : %d\n", tempTime, lastUpdate);
+        if (signal_propegation >= (playerID * 3))
         {
-            runningPulse = FALSE;
-            setLED(pulse_propegation, DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
-            pulse_propegation = 0;
+            runningIRpulses = FALSE;
+            PWM_Stop(PWM_4); // double check that it is stopped
+            signal_propegation = 0;
+            currDelay = MIN_WAIT_BETWEEN_PULSES;
         }
         
-        pulse_propegation ++;
-        switch(used_spell){
-            case UNSPECIFIED:
-                // Turns the pulse pixel off.
-                setLED(pulse_propegation-1, DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
-                setLED(pulse_propegation, 0, 0, 0);
-                // printf("Yes2\n");
+        switch(currDelay){
+            case ON_TIME:
+                // Turns the pwm on to generate a pulse.
+                PWM_Start(PWM_4);
+                
                 break;
-            case ROCK:
-                // st;
-                break;
-            case PAPER:
-                // st;
-                break;
-            case SISSORS:
+            case OFF_TIME:
                 // st;
                 break;
         }
         // update last update time store
         lastUpdate = TIMERS_GetMilliSeconds();
-        WS2812_Send();
+    } else if (tempTime > (lastUpdate + 500)){
+        // start a new pulse
+        runningIRpulses = TRUE;
+        PWM_Start(PWM_4);
+        currDelay = ONTIME;
+        signal_propegation = 0;
     }
 }
 
@@ -181,71 +182,15 @@ int initFunc(void) // initializes everything we need
     // PWM_Init();
     TIMER_Init();
 
-    // initialize SPI
-
-    // RGB library
-    WS2812_SPI_Init();
-    //   ws2812_init();
-    //   ws2812_pixel_all(255, 0, 255);
+    // set up PWM
+    PWM_Init();
+    PWM_SetDutyCycle(PWM_4, 50); // seems like a reasonable place to put it
+    PWM_SetFrequency(30000);
+    // PWM_Stop(PWM_4); // stop the sound until it is activated in loop
 
     return SUCCESS;
 }
 
-int R, G, B;
-void setColour(int inAngle)
-{
-    int H = 0;
-    int X = 0;
-    int C = 0;
-    int m = 0;
-
-    // int R = 0;
-    // int G = 0;
-    // int B = 0;
-
-    int S = 100;
-    int L = 50;
-    C = ((100.0 - abs(2.0 * L - 100)) * S) * 256 / 100 / 100;
-    H = abs(inAngle) * 120 / 60;
-    X = (C * (100 - abs((H % 200) - 100))) * 256 / 100 / 100;
-    m = (L - C / 2) * 255 / 100;
-    if (H / 120 >= 5)
-    {
-        R = C + m;
-        G = 0 + m;
-        B = X + m;
-    }
-    else if (H / 120 >= 4)
-    {
-        R = X + m;
-        G = 0 + m;
-        B = C + m;
-    }
-    else if (H / 120 >= 3)
-    {
-        R = 0 + m;
-        G = X + m;
-        B = C + m;
-    }
-    else if (H / 120 >= 2)
-    {
-        R = 0 + m;
-        G = C + m;
-        B = X + m;
-    }
-    else if (H / 120 >= 1)
-    {
-        R = X + m;
-        G = C + m;
-        B = 0 + m;
-    }
-    else
-    {
-        R = C + m;
-        G = X + m;
-        B = 0 + m;
-    }
-}
 
 // int main(void)
 // {
@@ -272,13 +217,7 @@ void setColour(int inAngle)
 // }
 
 int main(void) {
-    BOARD_Init();
-    
-    // set up PWM
-    PWM_Init();
-    PWM_SetDutyCycle(PWM_4, 50); // seems like a reasonable place to put it
-    PWM_SetFrequency(30000);
-    // PWM_Stop(PWM_4); // stop the sound until it is activated in loop
+    initFunc();
     
     while (TRUE) {
         // printf("Hello World\r\n");
