@@ -6,6 +6,7 @@
 #include <pwm.h>
 #include <math.h>
 #include <timers.h>
+#include <buttons.h>
 
 #include <string.h>
 #include <stm32f4xx_hal_spi.h>
@@ -70,7 +71,8 @@ void WS2812_SPI_Init(void)
 // set up LED color storage
 #define NUM_LED 23
 uint8_t LED_Data[NUM_LED][4];
-uint8_t DEFAULT_RGB[] = {255,0,0};
+uint8_t DEFAULT_RGB[] = {255, 0, 0}; // red
+// uint8_t DEFAULT_RGB[] = {0, 0, 255}; // blue
 
 // brightness controll
 #define USE_BRIGHTNESS 1
@@ -121,38 +123,43 @@ void WS2812_Send(void)
 
 // pulser
 int runningPulse = FALSE; // is s pulse animation active
-int pulse_propegation = 0;
-typedef enum{
+int pulse_propagation = 0;
+typedef enum
+{
     ROCK,
     PAPER,
-    SISSORS,
+    SCISSORS,
     UNSPECIFIED
-}spell;
+} spell;
 
 uint32_t lastUpdate = 0;
 uint32_t tempTime = 0;
 // uint32_t TIMERS_GetMilliSeconds(void);
 
-void spellPulse(spell used_spell){
+void spellPulse(spell used_spell)
+{
     // check current time
     tempTime = TIMERS_GetMilliSeconds();
     // ...
-    if (runningPulse && tempTime > (lastUpdate + 500))
+    if (runningPulse && tempTime > (lastUpdate + 10))
     {
-        printf("Yes1: %d : %d\n", tempTime, lastUpdate);
-        if (pulse_propegation >= NUM_LED)
+        // printf("Yes1: %d : %d\n", tempTime, lastUpdate);
+        if (pulse_propagation >= NUM_LED)
         {
             runningPulse = FALSE;
-            setLED(pulse_propegation, DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
-            pulse_propegation = 0;
+            setLED(pulse_propagation, DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
+            pulse_propagation = 0;
         }
-        
-        pulse_propegation ++;
-        switch(used_spell){
+        else
+        {
+
+            pulse_propagation++;
+            switch (used_spell)
+            {
             case UNSPECIFIED:
                 // Turns the pulse pixel off.
-                setLED(pulse_propegation-1, DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
-                setLED(pulse_propegation, 0, 0, 0);
+                setLED(pulse_propagation - 1, DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
+                setLED(pulse_propagation, 255, 255, 255);
                 // printf("Yes2\n");
                 break;
             case ROCK:
@@ -161,9 +168,10 @@ void spellPulse(spell used_spell){
             case PAPER:
                 // st;
                 break;
-            case SISSORS:
+            case SCISSORS:
                 // st;
                 break;
+            }
         }
         // update last update time store
         lastUpdate = TIMERS_GetMilliSeconds();
@@ -183,8 +191,9 @@ char flag;
 int initFunc(void) // initializes everything we need
 {
     BOARD_Init();
-    // PWM_Init();
+    BUTTONS_Init();
     TIMER_Init();
+    // PWM_Init();
 
     // initialize SPI
 
@@ -256,11 +265,12 @@ int main(void)
 {
     initFunc();
 
-    HAL_Delay(100);
+    HAL_Delay(1000);
     // initialize all LEDs to red
-    for (int i = 0; i < NUM_LED; i++) setLED(i, 0, 255, 0);
+    for (int i = 0; i < NUM_LED; i++)
+        setLED(i, 0, 255, 0);
     WS2812_Send();
-    HAL_Delay(5000);
+    HAL_Delay(1000);
 
     runningPulse = TRUE;
 
@@ -268,44 +278,48 @@ int main(void)
     {
         // spell abcss = UNSPECIFIED;
         spellPulse(UNSPECIFIED);
-        HAL_Delay(10);
-        if(!runningPulse){
+        HAL_Delay(1);
+        // if (!runningPulse)
+        // {
+        //     runningPulse = TRUE;
+        // }
+        if (~buttons_state() & 0x0f)
+        {
             runningPulse = TRUE;
         }
-
     }
 }
 
-        // minled = (minled + 1) % NUM_LED;
-        // maxled = (maxled + 1) % NUM_LED;
-        // for (int i = 0; i < NUM_LED; i++)
-        // {
-        //     if ((i >= 0 && i < NUM_LED) || (0 > NUM_LED && (i >= 0 || i < NUM_LED))){
-        //         setColour(i);
-        //         setLED(i, R, G, B);
-        //     } else {
-        //         setLED(i, 0, 0, 0);
-        //         // setLED(i, 255, 0, 0);
-        //     }
-                
-        // }
-        // for (int i=0; i<4; i++)
-        // {
-        //     setLED(i, 255, 0, 0);
-        // }
-        // WS2812_Send();
-        // HAL_Delay(1000);
+// minled = (minled + 1) % NUM_LED;
+// maxled = (maxled + 1) % NUM_LED;
+// for (int i = 0; i < NUM_LED; i++)
+// {
+//     if ((i >= 0 && i < NUM_LED) || (0 > NUM_LED && (i >= 0 || i < NUM_LED))){
+//         setColour(i);
+//         setLED(i, R, G, B);
+//     } else {
+//         setLED(i, 0, 0, 0);
+//         // setLED(i, 255, 0, 0);
+//     }
 
-        // for (int i=0; i<4; i++)
-        // {
-        //     setLED(i, 0, 255, 0);
-        // }
-        // WS2812_Send();
-        // HAL_Delay(1000);
+// }
+// for (int i=0; i<4; i++)
+// {
+//     setLED(i, 255, 0, 0);
+// }
+// WS2812_Send();
+// HAL_Delay(1000);
 
-        // for (int i=0; i<4; i++)
-        // {
-        //     setLED(i, 0, 0, 255);
-        // }
-        // WS2812_Send();
-        // HAL_Delay(1000);
+// for (int i=0; i<4; i++)
+// {
+//     setLED(i, 0, 255, 0);
+// }
+// WS2812_Send();
+// HAL_Delay(1000);
+
+// for (int i=0; i<4; i++)
+// {
+//     setLED(i, 0, 0, 255);
+// }
+// WS2812_Send();
+// HAL_Delay(1000);
