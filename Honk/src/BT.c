@@ -182,29 +182,48 @@ int main(void)
     uint8_t data[DATA_SIZE];
     // uint8_t last_data[DATA_SIZE];
     printf("init done\n");
+
+    uint8_t c;
     while (1)
     {
+        // printf("\n");
         // printf("%04x %ld\n", USART1->SR, (USART1->SR >> 5) & 1);
-        if (Uart1_rx(data, 30) == 1)
+        memset(data, 0, DATA_SIZE);
+        if (Uart1_rx(data, DATA_SIZE) == 1)
         {
-            // int start = 0;
+
             // for (int i = 0; i < DATA_SIZE; i++)
             // {
-            //     if (data[i] != last_data[i])
-            //     {
-            //         start = i;
-            //         break;
-            //     }
+            //     printf("%c %02x  ", data[i], data[i]);
             // }
+            // printf("\n");
+            // Uart1_tx(data, DATA_SIZE);
+            // Uart1_rx(data, DATA_SIZE);
+            // memset(data, 0, DATA_SIZE);
+            HAL_Delay(500);
+            // continue;
 
-            for (int i = 0; i < 30; i++)
+            // printf("IM VERY LOUD\n");
+
+            int start = 0;
+            for (int i = 0; i < DATA_SIZE; i++)
             {
-                printf("%c %02x  ", data[i], data[i]);
-                packet_parser(tmp_packet, data[i]);
+                if (data[i] == HEAD)
+                {
+                    start = i;
+                    break;
+                }
+            }
+
+            for (int i = 0; i < DATA_SIZE; i++)
+            {
+                c = data[(start + i) % DATA_SIZE];
+                // printf("%c %02x  ", c, c);
+                packet_parser(tmp_packet, c);
                 // printf("packet: %d %d %d %d %d\n", packet_id, tmp_packet->id, packet_ready, tmp_packet->id > packet_id, tmp_packet->id == 0);
                 if (packet_ready && (tmp_packet->id > packet_id || tmp_packet->id == 0))
                 {
-                    printf("packet ready\n");
+                    // printf("packet ready\n");
                     packet_ready = 0;
                     packet_id = tmp_packet->id;
                     buffer->buffer[buffer->tail]->id = tmp_packet->id;
@@ -231,12 +250,13 @@ int main(void)
             // printf("buffer not empty\n");
             // printf("id/packet: %d/%x\n", buffer->buffer[buffer->head]->id, packet_id);
             // printf("length: %d\n", buffer->buffer[buffer->head]->length);
+            printf("data: '");
             for (int i = 0; i < buffer->buffer[buffer->head]->length; i++)
             {
                 printf("%c", buffer->buffer[buffer->head]->data[i]);
                 // printf("data[%d]: %d\n", i, buffer->buffer[buffer->head]->data[i]);
             }
-            // printf("\n");
+            printf("'\n");
             // } else {
             //     printf("packet id: %x\n", buffer->buffer[buffer->head]->data[0]);
             // }

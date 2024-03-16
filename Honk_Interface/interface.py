@@ -12,6 +12,9 @@ TAIL = b"\xB9"
 END1 = b"\x0D"
 END2 = b"\x0A"
 
+DEBUG_SEND = False
+DEBUG_RECV = True
+
 # Get the BLE provider for the current platform.
 ble = Adafruit_BluefruitLE.get_provider()
 
@@ -244,7 +247,8 @@ def main():
 
                 while len(in_queues[i]) > 0:
                     id, data = in_queues[i].pop(0)
-                    print("Received: {0}: {1}, UART: {2}".format(id, data, i))
+                    if DEBUG_RECV:
+                        print("Received: {0}: {1}, UART: {2}".format(id, data, i))
 
                 # if count % 60 == 0:
                 out_queues[i].append((packet_ids[i], f"{alphabet[j:j+2]}"))
@@ -257,9 +261,12 @@ def main():
                     #     # packet_id,
                     # )
                     to_send = out_queues[i][0]
-                    print(
-                        "Sending: {0}: {1}, UART: {2}".format(to_send[0], to_send[1], i)
-                    )
+                    if DEBUG_SEND:
+                        print(
+                            "Sending: {0}: {1}, UART: {2}".format(
+                                to_send[0], to_send[1], i
+                            )
+                        )
                     uart.write(get_data_bytes(out_queues[i].pop(0)))
                     time.sleep(0.1)
                     # print("Sent data to UART {0}.".format(i))
