@@ -244,47 +244,49 @@ if __name__ == "__main__":
     # of automatically though and you just need to provide a main function that uses
     # the BLE provider.
     def test():
-        alphabet = "abcdefghijklmnopqrstuvwxyz\n"
+        alphabet = "abcdefghijklmnopqrstuvwxyz"
         alphabet_idx = 0
 
         device_count = init()
 
-        last_received = [-1 for _ in range(device_count)]
-        packet_counts = [0 for _ in range(device_count)]
-        drop_counts = [0 for _ in range(device_count)]
+        # last_received = [-1 for _ in range(device_count)]
+        # packet_counts = [0 for _ in range(device_count)]
+        # drop_counts = [0 for _ in range(device_count)]
+
+        # packet_data = [dict() for _ in range(device_count)] # {data: (sent count, received count)}
+
+        packet_counts = [[0, 0] for _ in range(device_count)]
+        tmp_counters = [0 for _ in range(device_count)]
+        last_recv = [0 for _ in range(device_count)]
 
         # Once connected do everything else in a try/finally to make sure the device
         # is disconnected when done.
-        for r in range(100):
+        for r in range(1000):
             # print(r)
             queue = recv()
             for i in range(device_count):
-
-                # TESTING: handle incoming packets, send outgoing packets
                 for data in queue[i]:
-                    print(f"UART {i} packet handled: {data}")
-                    tmp = alphabet.find(data)
-                    # print(tmp, last_received[i])
-                    if tmp != (last_received[i] + 1) % len(alphabet):
-                        lost = (tmp - last_received[i] - 1 + len(alphabet)) % len(alphabet)
-                        drop_counts[i] += lost
-                        print(f"UART {i} packet loss: {lost}")
-                    last_received[i] = tmp
+                    print(i, data[:-1], data[-1].encode("utf-8"))
+                    if data[:-1] == last_recv[i]:
+                        tmp_counters[i] += 1
+                    else:
+                        packet_counts[i][0] += 1
+                        packet_counts[i][1] += tmp_counters[i]
+                        tmp_counters[i] = 0
+                        last_recv[i] = data[:-1]
+                    send(i, f"ACK{data}")
 
                 send(
                     i,
                     f"{alphabet[alphabet_idx:(min(alphabet_idx+5, len(alphabet)))]}",
                 )
-                packet_counts[i] += 1
-
-                time.sleep(0.5)
 
             alphabet_idx += 1
             if alphabet_idx == len(alphabet):
                 alphabet_idx = 0
-        
-        print(f"Packet counts: {packet_counts}")
-        print(f"Drop counts: {drop_counts}")
-        print(f"Drop rates: {[drop_counts[i]/packet_counts[i] for i in range(device_count)]}")
+
+        # print(f"Packet counts: {packet_counts}")
+        for i, p in enumerate(packet_counts):
+            print(f"UART: {i} - Sent: {p[0]}, Received: {p[1]}")
 
     run(test)
