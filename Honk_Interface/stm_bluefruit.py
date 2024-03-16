@@ -17,7 +17,7 @@ MAX_DATA_LEN = 127
 
 DEBUG_SEND = False
 DEBUG_RECV = False
-DEBUG_RECV_DROP = True
+DEBUG_RECV_DROP = False
 
 # Get the BLE provider for the current platform.
 ble = Adafruit_BluefruitLE.get_provider()
@@ -135,7 +135,8 @@ def init() -> int:
             new = found - known
             for device in new:
                 print(f"Found UART {len(known)}: {device.name} [{device.id}]")
-            known.update(new)
+                known.add(device)
+            # known.update(new)
             time.sleep(1.0)
         if len(known) == 0:
             raise RuntimeError("Failed to find any UART devices!")
@@ -156,7 +157,7 @@ def init() -> int:
         for device in devices:
             UART.discover(device)
             uarts.append(UART(device))
-            in_packet_ids.append(100)
+            in_packet_ids.append(0)
             out_packet_ids.append(0)
 
         return len(uarts)
@@ -245,36 +246,38 @@ if __name__ == "__main__":
     def test():
         alphabet = "abcdefghijklmnopqrstuvwxyz\n"
         alphabet_idx = 0
-        last_received = 0
 
         device_count = init()
 
+        last_received = [-1 for _ in range(device_count)]
         packet_counts = [0 for _ in range(device_count)]
         drop_counts = [0 for _ in range(device_count)]
 
         # Once connected do everything else in a try/finally to make sure the device
         # is disconnected when done.
-        for r in range(1000):
-            print(r)
+        for r in range(100):
+            # print(r)
             queue = recv()
             for i in range(device_count):
 
                 # TESTING: handle incoming packets, send outgoing packets
                 for data in queue[i]:
-                    # print(f"handled: {data}")
+                    print(f"UART {i} packet handled: {data}")
                     tmp = alphabet.find(data)
-                    # print(tmp, last_received)
-                    if tmp != (last_received + 1) % len(alphabet):
-                        lost = (tmp - last_received - 1 + len(alphabet)) % len(alphabet)
+                    # print(tmp, last_received[i])
+                    if tmp != (last_received[i] + 1) % len(alphabet):
+                        lost = (tmp - last_received[i] - 1 + len(alphabet)) % len(alphabet)
                         drop_counts[i] += lost
-                        print(f"Packet loss: {lost}")
-                    last_received = tmp
+                        print(f"UART {i} packet loss: {lost}")
+                    last_received[i] = tmp
 
                 send(
                     i,
                     f"{alphabet[alphabet_idx:(min(alphabet_idx+5, len(alphabet)))]}",
                 )
                 packet_counts[i] += 1
+
+                time.sleep(0.5)
 
             alphabet_idx += 1
             if alphabet_idx == len(alphabet):
