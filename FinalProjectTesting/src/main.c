@@ -3,8 +3,9 @@
 #include <Board.h>
 
 #include <ADC.h>
-#include <PWM.h>
+#include <pwm.h>
 #include <buttons.h>
+#include <timers.h>
 
 #include <math.h>
 
@@ -119,7 +120,7 @@ int runningIRpulses = FALSE; // is s pulse animation active
 int signal_propegation = 0;
 int ON_TIME = 50; // microseconds to have pwm signal on
 int OFF_TIME = 100; // microseconds to have pwm signal off between sucessive on pules
-int MIN_WAIT_BETWEEN_PULSES = 500 // minimum microseconds between unique complete signals
+int MIN_WAIT_BETWEEN_PULSES = 500; // minimum microseconds between unique complete signals
 
 uint32_t lastUpdate = 0;
 uint32_t tempTime = 0;
@@ -131,8 +132,8 @@ uint32_t currDelay = 0;
 // PWM_Stop(PWM_4);
 // HAL_Delay(100);
 // when called will either start a new IR signal or service the active one (depending on if there is an active one).
-int sendIRsignal(int payerID){
-    if(playerID == 0) return; // if input is 0, do not do anything
+int sendIRsignal(int playerID){
+    if(playerID == 0) return 0; // if input is 0, do not do anything
     
     // check current time
     tempTime = TIMERS_GetMilliSeconds();
@@ -150,18 +151,15 @@ int sendIRsignal(int payerID){
             return 1;
         }
         
-        switch(currDelay){
-            case ON_TIME:
-                // turns off the pwm to give a pause time
-                PWM_Stop(PWM_4);
-                currDelay = OFF_TIME;
-                signal_propegation ++; // increment to track the newly completed pulse.
-                break;
-            case OFF_TIME:
-                // Turns the pwm on to generate a pulse.
-                PWM_Start(PWM_4);
-                currDelay = ON_TIME;
-                break;
+        if(currDelay == ON_TIME){
+            // turns off the pwm to give a pause time
+            PWM_Stop(PWM_4);
+            currDelay = OFF_TIME;
+            signal_propegation ++; // increment to track the newly completed pulse.
+        } else if(currDelay == OFF_TIME){
+            // Turns the pwm on to generate a pulse.
+            PWM_Start(PWM_4);
+            currDelay = ON_TIME;
         }
         // update last update time store
         lastUpdate = TIMERS_GetMilliSeconds();
@@ -169,7 +167,7 @@ int sendIRsignal(int payerID){
         // start a new pulse
         runningIRpulses = TRUE;
         PWM_Start(PWM_4);
-        currDelay = ONTIME;
+        currDelay = ON_TIME;
         signal_propegation = 0;
         lastUpdate = TIMERS_GetMilliSeconds();
     }
@@ -230,7 +228,7 @@ int main(void) {
     
     while (TRUE) {
 
-        HAL_Delay(10);
+        HAL_Delay(1);
         sendIRsignal(2);
         
         // printf("Hello World\r\n");
