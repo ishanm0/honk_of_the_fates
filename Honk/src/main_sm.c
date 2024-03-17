@@ -26,6 +26,7 @@ extern void map2color(int *red, int *green, int *blue, int degree);
 
 // The player's ID number as will be assigned by the computer.
 int playerID = 0;
+uint8_t BT_sendable_byte[DATA_SIZE];
 
 typedef enum
 { // see google doc stm32 state machine
@@ -174,6 +175,14 @@ int main(void)
                 // uart_send(pkt);                                       // not a real function, just pseudo code
                 
                 // NEED TO CREATE AND SEND THE PACKET SHOWING A REGISTERED HIT !!!!!!!!!!!!!!!!!!!
+                // 0x04 = shot received
+                //     0x04 [msg id, 1 char] [receiving player’s id, 1 char] [sending player’s id, 1 char] (4 bytes)
+                //     (STM → laptop)
+                BT_sendable_byte[0] = 0x04;
+                BT_sendable_byte[0] = 0x04; // !!!!!!!! ADD proper message ID
+                BT_sendable_byte[2] = playerID; // [receiving player’s id, 1 char]
+                BT_sendable_byte[3] = (char)(IR_Count()/3); // [sending player’s id, 1 char]
+                BT_Send(*BT_sendable_byte, 4); // Send the 4 char "shot recieved" message
                 
                 state = STATE_PROCESSING;                             // change the state to STATE_PROCESSING
             }

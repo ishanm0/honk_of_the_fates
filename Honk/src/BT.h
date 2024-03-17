@@ -26,7 +26,7 @@ int BT_Init();
  * @param data: pointer to data buffer
  * @return length of data received or ERROR if no data available
  */
-int BT_Recv(uint8_t *data);
+int BT_Recv(uint8_t *data); // TODO: take as input the max data to read in (length of buffer probably)
 
 /**
  * @Function BT_Send
