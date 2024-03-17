@@ -33,7 +33,9 @@ int modulo;
 int sentMessageLengths[256];               // save length of message in position i
 uint8_t sendMessageGarage[256][DATA_SIZE]; // save message in position i
 // i = (i + 1) % 256; // increment the message id
-uint8_t activeID = 0; 
+uint8_t activeID = 0;                       // ID to be assigned to the next sent message (cycles from 0->255)
+
+uint8_t sendIRflag = FALSE;                 // flag controlling whether IR transmission is called in the main loop during game
 
 typedef enum
 {                 // see google doc stm32 state machine
@@ -53,6 +55,11 @@ int initFunc(void) // initializes everything we need
     TIMER_Init();      // Timer initialization
     BT_Init();         // Bluetooth initialization
     WS2812_SPI_Init(); // RGB library initialization
+
+    // IR transmission setup
+    PWM_SetDutyCycle(PWM_5, 50);    // seems like a reasonable place to put it
+    PWM_SetFrequency(30000);        // set to 30kHz
+    PWM_Stop(PWM_5);                // stop the sound until it is activated in loop
 
     // All libraries should now be ready to go.
     return SUCCESS;
@@ -199,6 +206,7 @@ int main(void)
                 // if no ack back don't move on ?????????????????????
                 activeID = (activeID + 1) % 256;
                 spellPulse(UNSPECIFIED, TRUE);
+                sendIRflag = TRUE;                  // set flag so it sends IR
             }
             else if (buttons & BUTTON_3)
             {
@@ -209,6 +217,7 @@ int main(void)
                 // if no ack back don't move on ?????????????????????
                 activeID = (activeID + 1) % 256;
                 spellPulse(UNSPECIFIED, TRUE);
+                sendIRflag = TRUE;                  // set flag so it sends IR
             }
             else if (buttons & BUTTON_4)
             {
@@ -219,10 +228,16 @@ int main(void)
                 // if no ack back don't move on ?????????????????????
                 activeID = (activeID + 1) % 256;
                 spellPulse(UNSPECIFIED, TRUE);
+                sendIRflag = TRUE;                  // set flag so it sends IR
             }
             else
             {
                 spellPulse(UNSPECIFIED, FALSE);
+            }
+
+            if(sendIRflag == TRUE){                 // send IR if needed
+                if(sendIRsignal(playerID)==TRUE)    // run service and check if done sending
+                    sendIRflag = FALSE;             // reset the flag if done sending
             }
 
             if (IR_Detect() == TRUE)
