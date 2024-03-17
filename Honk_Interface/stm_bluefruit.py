@@ -15,9 +15,9 @@ END2 = b"\x0A"
 
 MAX_DATA_LEN = 127
 
-DEBUG_SEND = False
-DEBUG_RECV = False
-DEBUG_RECV_DROP = False
+DEBUG_SEND = True
+DEBUG_RECV = True
+DEBUG_RECV_DROP = True
 
 # Get the BLE provider for the current platform.
 ble = Adafruit_BluefruitLE.get_provider()
@@ -245,47 +245,69 @@ if __name__ == "__main__":
     # the BLE provider.
     def test():
         alphabet = "abcdefghijklmnopqrstuvwxyz"
-        alphabet_idx = 0
 
         device_count = init()
 
-        # last_received = [-1 for _ in range(device_count)]
-        # packet_counts = [0 for _ in range(device_count)]
-        # drop_counts = [0 for _ in range(device_count)]
+        alphabet_idx = [0 for _ in range(device_count)]
+        # packet_counts = [[0, 0] for _ in range(device_count)]
+        packet_times = [list() for _ in range(device_count)]
+        packet_drops = [0 for _ in range(device_count)]
+        last_sent = ["" for _ in range(device_count)]
+        last_sent_time = [None for _ in range(device_count)]
+        transaction = [False for _ in range(device_count)]
 
-        # packet_data = [dict() for _ in range(device_count)] # {data: (sent count, received count)}
-
-        packet_counts = [[0, 0] for _ in range(device_count)]
-        tmp_counters = [0 for _ in range(device_count)]
-        last_recv = [0 for _ in range(device_count)]
+        DROP_THRESHOLD = 0.2  # seconds
 
         # Once connected do everything else in a try/finally to make sure the device
         # is disconnected when done.
+
         for _ in range(1000):
             queue = recv()
             for i in range(device_count):
+                transaction[i] = False
                 for data in queue[i]:
-                    print(i, data[:-1], data[-1].encode("utf-8"))
-                    if data[:-1] == last_recv[i]:
-                        tmp_counters[i] += 1
-                    else:
-                        packet_counts[i][0] += 1
-                        packet_counts[i][1] += tmp_counters[i]
-                        tmp_counters[i] = 0
-                        last_recv[i] = data[:-1]
-                    send(i, f"ACK{data}")
+                    if data == last_sent[i]:
+                        alphabet_idx[i] += 1
+                        if alphabet_idx[i] == len(alphabet):
+                            alphabet_idx[i] = 0
 
-                send(
-                    i,
-                    f"{alphabet[alphabet_idx:(min(alphabet_idx+5, len(alphabet)))]}",
-                )
+                        last_sent[i] = alphabet[
+                            alphabet_idx[i] : (min(alphabet_idx[i] + 5, len(alphabet)))
+                        ]
+                        send(
+                            i,
+                            f"{last_sent[i]}",
+                        )
+                        transaction[i] = True
+                        packet_times[i].append(time.time() - last_sent_time[i])
+                        last_sent_time[i] = time.time()
 
-            alphabet_idx += 1
-            if alphabet_idx == len(alphabet):
-                alphabet_idx = 0
+                if not transaction[i] and (
+                    last_sent_time[i] is None
+                    or time.time() - last_sent_time[i] > DROP_THRESHOLD
+                ):
+                    if last_sent[i] == "":
+                        last_sent[i] = alphabet[
+                            alphabet_idx[i] : (min(alphabet_idx[i] + 5, len(alphabet)))
+                        ]
+
+                    send(
+                        i,
+                        f"{last_sent[i]}",
+                    )
+                    transaction[i] = True
+                    packet_drops[i] += 1
+                    last_sent_time[i] = time.time()
+
+                # send(
+                #     i,
+                #     f"{alphabet[alphabet_idx:(min(alphabet_idx+5, len(alphabet)))]}",
+                # )
 
         # print(f"Packet counts: {packet_counts}")
-        for i, p in enumerate(packet_counts):
-            print(f"UART: {i} - Sent: {p[0]}, Received: {p[1]}")
+        for i in range(device_count):
+            print(
+                f"UART: {i} - Avg Packet Time: {round(sum(packet_times[i]) / len(packet_times[i]), 3)}s, Dropped: {packet_drops[i]}, Total Attempts: {len(packet_times[i]) + packet_drops[i]}, Drop Rate: {round(packet_drops[i] / (len(packet_times[i]) + packet_drops[i]), 3) * 100}%"
+            )
 
     run(test)
