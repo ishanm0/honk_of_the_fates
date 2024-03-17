@@ -27,6 +27,13 @@ extern void map2color(int *red, int *green, int *blue, int degree);
 // The player's ID number as will be assigned by the computer.
 uint8_t playerID = 0;
 uint8_t BT_sendable_byte[DATA_SIZE];
+char flag;
+int modulo;
+
+int sentMessageLengths[256];               // save length of message in position i
+uint8_t sendMessageGarage[256][DATA_SIZE]; // save message in position i
+// i = (i + 1) % 256; // increment the message id
+uint8_t activeID = 0; 
 
 typedef enum
 {                 // see google doc stm32 state machine
@@ -64,7 +71,7 @@ int main(void)
     uint8_t BT_buffer[256];
     int chars_read = 0;
     int colorChosen = FALSE;
-    int next_msg_id = (next_msg_id + 1) % 256; // increment the message id
+    // int activeID = (activeID + 1) % 256; // increment the message id
 
     while (TRUE)
     {
@@ -77,20 +84,6 @@ int main(void)
         PWM_SetDutyCycle(PWM_4, red);
         PWM_SetDutyCycle(PWM_0, green);
         PWM_SetDutyCycle(PWM_2, blue);
-
-        // if (buttons & BUTTON_1) {
-        //     printf("Button 1 pressed\n");
-        // } else if (buttons & BUTTON_2) {
-        //     printf("Button 2 pressed\n"); // pin 26
-        // } else if (buttons & BUTTON_3) {
-        //     printf("Button 3 pressed\n"); // pin 27
-        // } else if (buttons & BUTTON_4) {
-        //     printf("Button 4 pressed\n"); // pin 30
-        // }
-
-        // spell 1 > spell 2
-        // spell 2 > spell 3
-        // spell 3 > spell 1
 
         chars_read = BT_Recv(BT_buffer); // read the bluetooth buffer
         BT_buffer[chars_read] = '\0';    // null terminate the buffer
@@ -105,8 +98,9 @@ int main(void)
                 BT_buffer[0] = 0x01;   // set the first byte of the buffer to 0x01 (ACK)
                 BT_Send(BT_buffer, 2); // send ack to laptop
                 // increment message id
-                next_msg_id =+ 1;
-                state = STATE_P_INIT;  // change the state to STATE_P_INIT
+                activeID = (activeID + 1) % 256;
+                // if no ack back don't move on ?????????????????????
+                state = STATE_P_INIT; // change the state to STATE_P_INIT
             }
             break;
 
@@ -149,13 +143,8 @@ int main(void)
                 }
                 state = STATE_CON; // change the state to STATE_WAIT
             }
-            // if ((buttons & (BUTTON_2 | BUTTON_3 | BUTTON_4)))
-            // {
-            //     // send packet of what our color is
-            //     // change states
-            //     state = STATE_WAIT; // change the state to STATE_START
-            // }
             break;
+
         case STATE_CON:
             // wait for confirmation from stm32
 
@@ -163,7 +152,8 @@ int main(void)
             {
                 BT_buffer[0] = 0x01;
                 BT_Send(BT_buffer, 2); // send ack to laptop
-                next_msg_id =+ 1;
+                activeID = (activeID + 1) % 256;
+                // if no ack back don't move on ?????????????????????
             }
             else if (BT_buffer[0] == 0x01)
             {
@@ -174,7 +164,8 @@ int main(void)
                 BT_buffer[0] = 0x07;
                 BT_buffer[1] = color;
                 BT_Send(BT_buffer, 2 + strlen(color));
-                next_msg_id =+ 1;
+                activeID = (activeID + 1) % 256;
+                // if no ack back don't move on ?????????????????????
             }
             break;
 
@@ -184,7 +175,7 @@ int main(void)
                 playerID = BT_buffer[1];
                 BT_buffer[0] = 0x01;
                 BT_Send(BT_buffer, 2); // send ack to laptop
-                next_msg_id =+ 1;
+                activeID = (activeID + 1) % 256;
                 state = STATE_START; // change the state to STATE_START
             }
             break;
@@ -195,9 +186,9 @@ int main(void)
             {
                 BT_buffer[0] = 0x01;
                 BT_Send(BT_buffer, 2); // send ack to laptop
-                next_msg_id =+ 1;
+                activeID = (activeID + 1) % 256;
             }
-            
+
             // service button input
             else if (buttons & BUTTON_2)
             {
@@ -205,8 +196,9 @@ int main(void)
                 BT_buffer[1] = playerID;
                 BT_buffer[2] = 2;
                 BT_Send(BT_buffer, 4);
-                next_msg_id =+ 1;
-                
+                // if no ack back don't move on ?????????????????????
+                activeID = (activeID + 1) % 256;
+                spellPulse(UNSPECIFIED, TRUE);
             }
             else if (buttons & BUTTON_3)
             {
@@ -214,7 +206,9 @@ int main(void)
                 BT_buffer[1] = playerID;
                 BT_buffer[2] = 3;
                 BT_Send(BT_buffer, 4);
-                next_msg_id =+ 1;
+                // if no ack back don't move on ?????????????????????
+                activeID = (activeID + 1) % 256;
+                spellPulse(UNSPECIFIED, TRUE);
             }
             else if (buttons & BUTTON_4)
             {
@@ -222,46 +216,78 @@ int main(void)
                 BT_buffer[1] = playerID;
                 BT_buffer[2] = 4;
                 BT_Send(BT_buffer, 4);
-                next_msg_id =+ 1;
-
-            if (skibidi){
-                yes yes
+                // if no ack back don't move on ?????????????????????
+                activeID = (activeID + 1) % 256;
+                spellPulse(UNSPECIFIED, TRUE);
             }
-                    // check for bluetooth messages !!!!!!!! we need to implement the below:
-                    //  For this we need to:
-                    //      check for stray player ID assignment messages and re-give acknoledgement
-                    //      check for acknoledgement and clear the associated message from the sent message queue
-                    //      periodically check queue of sent messages to make sure it is empty
-                    //          if some not cleared then resend themc
+            else
+            {
+                spellPulse(UNSPECIFIED, FALSE);
+            }
 
-                    // service IR
-                    // service RGB LEDs
+            if (IR_Detect() == TRUE)
+            {
+                flag = TRUE;
+            }
+            if ((IR_timecheck() + 300 < TIMERS_GetMilliSeconds()) && (flag == TRUE))
+            {
 
-                    break;
-            } // state machine initialization
-        }
+                if (!(abs(IR_Count() - playerID * 3) <= 1))
+                {
+                    modulo = IR_Count() % 3;
+                    BT_buffer[0] = 0x04;
+                    BT_buffer[1] = activeID;
+                    BT_buffer[2] = playerID;
+                    if (modulo == 0 || modulo == 1)
+                    {
+                        // return opp id IR_Count()/3
+                        BT_buffer[3] = IR_Count() / 3;
+                    }
+                    else if (modulo == 2)
+                    {
+                        BT_buffer[3] = (IR_Count() + 1) / 3;
+                    }
+                    BT_Send(BT_buffer, 4);
+                    // if no ack back don't move on ?????????????????????
+                    activeID = (activeID + 1) % 256;
+                    
+                }
+                flag = FALSE;
+            }
+            // check for bluetooth messages !!!!!!!! we need to implement the below:
+            //  For this we need to:
+            //      check for stray player ID assignment messages and re-give acknoledgement
+            //      check for acknoledgement and clear the associated message from the sent message queue
+            //      periodically check queue of sent messages to make sure it is empty
+            //          if some not cleared then resend themc
+
+            // service IR
+
+            break;
+        } // state machine initialization
     }
+}
 
-    // // start the process
-    //                 // if IR receiver counts x amount of pulses
-    //                 if ((IR_Count() != playerID * 3) && (TIMERS_GetMicroSeconds() > 5000))
-    //                 { // if the IR receiver counts 10 pulses
-    //                     // send hit and time to stm32
-    //                     // char time = itoa(TIMERS_GetMicroSeconds(), time, 10); // convert the time to a string
-    //                     // char pkt = "hit " + time;                             // send the string "hit" and the time
-    //                     // uart_send(pkt);                                       // not a real function, just pseudo code
+// // start the process
+//                 // if IR receiver counts x amount of pulses
+//                 if ((IR_Count() != playerID * 3) && (TIMERS_GetMicroSeconds() > 5000))
+//                 { // if the IR receiver counts 10 pulses
+//                     // send hit and time to stm32
+//                     // char time = itoa(TIMERS_GetMicroSeconds(), time, 10); // convert the time to a string
+//                     // char pkt = "hit " + time;                             // send the string "hit" and the time
+//                     // uart_send(pkt);                                       // not a real function, just pseudo code
 
-    //                     // NEED TO CREATE AND SEND THE PACKET SHOWING A REGISTERED HIT !!!!!!!!!!!!!!!!!!!
-    //                     // 0x04 = shot received
-    //                     //     0x04 [msg id, 1 char] [receiving player’s id, 1 char] [sending player’s id, 1 char] (4 bytes)
-    //                     //     (STM → laptop)
-    //                     BT_sendable_byte[0] = 0x04;
-    //                     BT_sendable_byte[0] = 0x04;                   // !!!!!!!! ADD proper message ID
-    //                     BT_sendable_byte[2] = playerID;               // [receiving player’s id, 1 char]
-    //                     BT_sendable_byte[3] = (char)(IR_Count() / 3); // [sending player’s id, 1 char]
-    //                     BT_Send(*BT_sendable_byte, 4);                // Send the 4 char "shot received" message
-    //                 }
-    //                 else if (strcmp("miss", (char *)BT_buffer) == 0)
-    //                 { // if the string is equal to "missed"y
-    //                   // state = STATE_PROCESSING; // change the state to STATE_WAIT
-    //                 }
+//                     // NEED TO CREATE AND SEND THE PACKET SHOWING A REGISTERED HIT !!!!!!!!!!!!!!!!!!!
+//                     // 0x04 = shot received
+//                     //     0x04 [msg id, 1 char] [receiving player’s id, 1 char] [sending player’s id, 1 char] (4 bytes)
+//                     //     (STM → laptop)
+//                     BT_sendable_byte[0] = 0x04;
+//                     BT_sendable_byte[0] = 0x04;                   // !!!!!!!! ADD proper message ID
+//                     BT_sendable_byte[2] = playerID;               // [receiving player’s id, 1 char]
+//                     BT_sendable_byte[3] = (char)(IR_Count() / 3); // [sending player’s id, 1 char]
+//                     BT_Send(*BT_sendable_byte, 4);                // Send the 4 char "shot received" message
+//                 }
+//                 else if (strcmp("miss", (char *)BT_buffer) == 0)
+//                 { // if the string is equal to "missed"y
+//                   // state = STATE_PROCESSING; // change the state to STATE_WAIT
+//                 }
