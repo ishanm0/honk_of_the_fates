@@ -116,7 +116,7 @@ def debug_modes(
     DEBUG_RECV_DROP = recv_drop
 
 
-def init() -> int:
+def init(count: int = 0) -> int:
     global ble, adapter, devices, uarts, in_packet_ids, out_packet_ids
     # Clear any cached data because both bluez and CoreBluetooth have issues with
     # caching data and it going stale.
@@ -139,16 +139,27 @@ def init() -> int:
         # Search for the first UART device found (will time out after 60 seconds
         # but you can specify an optional timeout_sec parameter to change it).
         known = set()
-        for _ in range(5):
-            found = set(UART.find_devices())
-            new = found - known
-            for device in new:
-                print(f"Found UART {len(known)}: {device.name} [{device.id}]")
-                known.add(device)
-            # known.update(new)
-            time.sleep(1.0)
-        if len(known) == 0:
-            raise RuntimeError("Failed to find any UART devices!")
+        if count == 0:
+            for _ in range(5):
+                found = set(UART.find_devices())
+                new = found - known
+                for device in new:
+                    print(f"Found UART {len(known)}: {device.name} [{device.id}]")
+                    known.add(device)
+                # known.update(new)
+                time.sleep(1.0)
+            if len(known) == 0:
+                raise RuntimeError("Failed to find any UART devices!")
+        else:
+            start_time = time.time()
+            while len(known) < count and time.time() - start_time < 60:
+                found = set(UART.find_devices())
+                new = found - known
+                for device in new:
+                    print(f"Found UART {len(known)}: {device.name} [{device.id}]")
+                    known.add(device)
+            if len(known) < count:
+                raise RuntimeError(f"Failed to find {count} UART devices!")
         devices = list(known)
     finally:
         # Make sure scanning is stopped before exiting.
