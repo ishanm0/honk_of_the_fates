@@ -43,6 +43,7 @@
  ******************************************************************************/
 #include <Board.h>
 #include <timers.h>
+#include <pwm.h>
 #include <stdint.h>
 #include "stm32f4xx_hal.h"
 #include <stm32f4xx_hal_tim.h>
@@ -71,5 +72,8 @@ char IR_Detect(void);
  */
 int IR_Count(void);
 int IR_timecheck(void);
+
+// serivceing function for sending IR signal
+int sendIRsignal(int);
 
 #endif  /* IR_H */
