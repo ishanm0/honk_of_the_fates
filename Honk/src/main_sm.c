@@ -89,7 +89,7 @@ int main(void)
         {
         case STATE_IDLE:
             // wait for connection confirmation from uart initialization
-            if (strcmp("connected", BT_buffer) == 0)
+            if (strcmp("connected", (char *)BT_buffer) == 0)
             { // if the string is equal to "connected"
                 // BT_Recv is undeclared, will be packet handler on stm32
 
@@ -146,20 +146,20 @@ int main(void)
             break;
         case STATE_WAIT:
             // wait for confirmation from stm32
-            if (strcmp("quack", BT_buffer) == 0)
+            if (strcmp("quack", (char *)BT_buffer) == 0)
             {                        // if the string is equal to "confirmed"
                 state = STATE_START; // change the state to STATE_START
             }
             else
             {
                 // uart_send(*color); // not a real function, just pseudo code
-                BT_Send(color, strlen(color)); // send the color to the stm32
+                BT_Send((uint8_t *)color, strlen(color)); // send the color to the stm32
             }
             break;
         case STATE_START:
             // start the process
             // if IR receiver counts x amount of pulses
-            if ((IR_receiver_count() != id * 3) && (TIMERS_GetMicroSeconds() > 5000))
+            if ((IR_Count() != id * 3) && (TIMERS_GetMicroSeconds() > 5000))
             { // if the IR receiver counts 10 pulses
                 // send hit and time to stm32
                 char time = itoa(TIMERS_GetMicroSeconds(), time, 10); // convert the time to a string
@@ -167,7 +167,7 @@ int main(void)
                 uart_send(pkt);                                       // not a real function, just pseudo code
                 state = STATE_PROCESSING;                             // change the state to STATE_PROCESSING
             }
-            else if (strcmp("miss", BT_buffer) == 0)
+            else if (strcmp("miss", (char *)BT_buffer) == 0)
             {                             // if the string is equal to "missed"
                 state = STATE_PROCESSING; // change the state to STATE_WAIT
             }
@@ -175,7 +175,7 @@ int main(void)
         case STATE_PROCESSING:
             // disable buttons until acknolwedgement from stm32
             // wait for confirmation from stm32
-            if (strcmp("ack", BT_buffer) == 0)
+            if (strcmp("ack", (char *)BT_buffer) == 0)
             {                        // if the string is equal to "confirmed"
                 state = STATE_START; // change the state to STATE_IDLE
             }
