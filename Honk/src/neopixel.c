@@ -70,12 +70,16 @@ void WS2812_SPI_Init(void)
 // set up LED color storage
 #define NUM_LED 23
 uint8_t LED_Data[NUM_LED][4];
-uint8_t DEFAULT_RGB[] = {255,0,0};
+uint8_t DEFAULT_RGB[] = {255, 0, 0};
 
-// brightness controll
+// brightness control on if 1, off if 0
 #define USE_BRIGHTNESS 1
+
+// values 0-100 (%), sets brightness of pixels.
+//      Affects ws2812_spi()
 int brightness = 20;
 
+// set a given LED to given RGB colour values
 void setLED(int led, int RED, int GREEN, int BLUE)
 {
     LED_Data[led][0] = led;
@@ -84,6 +88,7 @@ void setLED(int led, int RED, int GREEN, int BLUE)
     LED_Data[led][3] = BLUE;
 }
 
+// sends the correct SPI message to correspond to given RGB colours
 void ws2812_spi(int GREEN, int RED, int BLUE)
 {
 #if USE_BRIGHTNESS
@@ -119,81 +124,70 @@ void WS2812_Send(void)
     HAL_Delay(1);
 }
 
-// pulser
+// pulser variables
 int runningPulse = FALSE; // is s pulse animation active
-int pulse_propegation = 0;
-typedef enum{
+int pulse_propagation = 0;
+typedef enum
+{
     ROCK,
     PAPER,
     SISSORS,
     UNSPECIFIED
-}spell;
+} spell;
 
 uint32_t lastUpdate = 0;
 uint32_t tempTime = 0;
-// uint32_t TIMERS_GetMilliSeconds(void);
 
-void spellPulse(spell used_spell){
+// When called will check for RGB LED animation status and
+//  if the runningPulse flag is == TRUE it will
+//  service a current animation or start a new one if there is none active
+//  This function is compute light when called unless it si time for a new frame.
+//      Thus it is safe to call repeatedly.
+void spellPulse(spell used_spell)
+{
     // check current time
     tempTime = TIMERS_GetMilliSeconds();
-    // ...
-    if (runningPulse && tempTime > (lastUpdate + 500))
-    {    
-        printf("Yes1: %d : %d\n", tempTime, lastUpdate);
-        if (pulse_propegation >= NUM_LED)
+    // If currently running an animation and ready to do the next frame:
+    if (runningPulse && tempTime > (lastUpdate + 10))
+    {
+        printf("Yes1: %lu : %lu\n", tempTime, lastUpdate);
+        if (pulse_propagation >= NUM_LED)
         {
             runningPulse = FALSE;
-            setLED(pulse_propegation, DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
-            pulse_propegation = 0;
+            setLED(pulse_propagation, DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
+            pulse_propagation = 0;
         }
-        
-        pulse_propegation ++;
-        switch(used_spell){
+        else
+        {
+            pulse_propagation++;
+            switch (used_spell)
+            {
             case UNSPECIFIED:
                 // Turns the pulse pixel off.
-                setLED(pulse_propegation-1, DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
-                setLED(pulse_propegation, 0, 0, 0);
-                // printf("Yes2\n");
+                setLED(pulse_propagation - 1, DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
+                setLED(pulse_propagation, 255, 255, 255);
                 break;
             case ROCK:
-                // st;
+                // Turns the pulse pixel off.
+                setLED(pulse_propagation - 1, DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
+                setLED(pulse_propagation, 0, 255, 0);
                 break;
             case PAPER:
-                // st;
+                // Turns the pulse pixel off.
+                setLED(pulse_propagation - 1, DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
+                setLED(pulse_propagation, 255, 255, 0);
                 break;
             case SISSORS:
-                // st;
+                // Turns the pulse pixel off.
+                setLED(pulse_propagation - 1, DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
+                setLED(pulse_propagation, 255, 0, 0);
                 break;
+            }
         }
         // update last update time store
         lastUpdate = TIMERS_GetMilliSeconds();
         WS2812_Send();
     }
-}
-
-// so you can do it without a set spell
-// void spellPulse(void){
-//     spellPulse(UNSPECIFIED);
-// }
-
-// MAIN:
-
-// int R, G, B, C, X, H_prime;
-char flag;
-int initFunc(void) // initializes everything we need
-{
-    BOARD_Init();
-    // PWM_Init();
-    TIMER_Init();
-
-    // initialize SPI
-
-    // RGB library
-    WS2812_SPI_Init();
-    //   ws2812_init();
-    //   ws2812_pixel_all(255, 0, 255);
-
-    return SUCCESS;
 }
 
 int R, G, B;
@@ -252,60 +246,84 @@ void setColour(int inAngle)
     }
 }
 
-int main(void)
-{
-    initFunc();
+// so you can do it without a set spell
+// void spellPulse(void){
+//     spellPulse(UNSPECIFIED);
+// }
 
-    HAL_Delay(100);
-    // initialize all LEDs to red
-    for (int i = 0; i < NUM_LED; i++) setLED(i, 0, 255, 0);
-    WS2812_Send();
-    HAL_Delay(5000);
+// MAIN:
 
-    runningPulse = TRUE;
+// int R, G, B, C, X, H_prime;
+// char flag;
+// int initFunc(void) // initializes everything we need
+// {
+//     BOARD_Init();
+//     // PWM_Init();
+//     TIMER_Init();
 
-    while (TRUE)
-    {
-        // spell abcss = UNSPECIFIED;
-        spellPulse(UNSPECIFIED);
-        HAL_Delay(10);
-        if(!runningPulse){
-            runningPulse = TRUE;
-        }
+//     // initialize SPI
 
-    }
-}
+//     // RGB library
+//     WS2812_SPI_Init();
 
-        // minled = (minled + 1) % NUM_LED;
-        // maxled = (maxled + 1) % NUM_LED;
-        // for (int i = 0; i < NUM_LED; i++)
-        // {
-        //     if ((i >= 0 && i < NUM_LED) || (0 > NUM_LED && (i >= 0 || i < NUM_LED))){
-        //         setColour(i);
-        //         setLED(i, R, G, B);
-        //     } else {
-        //         setLED(i, 0, 0, 0);
-        //         // setLED(i, 255, 0, 0);
-        //     }
-                
-        // }
-        // for (int i=0; i<4; i++)
-        // {
-        //     setLED(i, 255, 0, 0);
-        // }
-        // WS2812_Send();
-        // HAL_Delay(1000);
+//     // everything should be initialized
+//     return SUCCESS;
+// }
 
-        // for (int i=0; i<4; i++)
-        // {
-        //     setLED(i, 0, 255, 0);
-        // }
-        // WS2812_Send();
-        // HAL_Delay(1000);
+// int main(void)
+// {
+//     initFunc();
 
-        // for (int i=0; i<4; i++)
-        // {
-        //     setLED(i, 0, 0, 255);
-        // }
-        // WS2812_Send();
-        // HAL_Delay(1000);
+//     HAL_Delay(100);
+//     // initialize all LEDs to red
+//     for (int i = 0; i < NUM_LED; i++) setLED(i, 0, 255, 0);
+//     WS2812_Send();
+//     HAL_Delay(5000);
+
+//     runningPulse = TRUE;
+
+//     while (TRUE)
+//     {
+//         // spell abcss = UNSPECIFIED;
+//         spellPulse(UNSPECIFIED);
+//         HAL_Delay(10);
+//         if(!runningPulse){
+//             runningPulse = TRUE;
+//         }
+
+//     }
+// }
+
+// minled = (minled + 1) % NUM_LED;
+// maxled = (maxled + 1) % NUM_LED;
+// for (int i = 0; i < NUM_LED; i++)
+// {
+//     if ((i >= 0 && i < NUM_LED) || (0 > NUM_LED && (i >= 0 || i < NUM_LED))){
+//         setColour(i);
+//         setLED(i, R, G, B);
+//     } else {
+//         setLED(i, 0, 0, 0);
+//         // setLED(i, 255, 0, 0);
+//     }
+
+// }
+// for (int i=0; i<4; i++)
+// {
+//     setLED(i, 255, 0, 0);
+// }
+// WS2812_Send();
+// HAL_Delay(1000);
+
+// for (int i=0; i<4; i++)
+// {
+//     setLED(i, 0, 255, 0);
+// }
+// WS2812_Send();
+// HAL_Delay(1000);
+
+// for (int i=0; i<4; i++)
+// {
+//     setLED(i, 0, 0, 255);
+// }
+// WS2812_Send();
+// HAL_Delay(1000);

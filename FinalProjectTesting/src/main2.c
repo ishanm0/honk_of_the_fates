@@ -121,7 +121,7 @@ void WS2812_Send(void)
 
 // pulser
 int runningPulse = FALSE; // is s pulse animation active
-int pulse_propegation = 0;
+int pulse_propagation = 0;
 typedef enum{
     ROCK,
     PAPER,
@@ -138,21 +138,21 @@ void spellPulse(spell used_spell){
     tempTime = TIMERS_GetMilliSeconds();
     // ...
     if (runningPulse && tempTime > (lastUpdate + 500))
-    {    
+    {
         printf("Yes1: %d : %d\n", tempTime, lastUpdate);
-        if (pulse_propegation >= NUM_LED)
+        if (pulse_propagation >= NUM_LED)
         {
             runningPulse = FALSE;
-            setLED(pulse_propegation, DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
-            pulse_propegation = 0;
+            setLED(pulse_propagation, DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
+            pulse_propagation = 0;
         }
         
-        pulse_propegation ++;
+        pulse_propagation ++;
         switch(used_spell){
             case UNSPECIFIED:
                 // Turns the pulse pixel off.
-                setLED(pulse_propegation-1, DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
-                setLED(pulse_propegation, 0, 0, 0);
+                setLED(pulse_propagation-1, DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
+                setLED(pulse_propagation, 0, 0, 0);
                 // printf("Yes2\n");
                 break;
             case ROCK:

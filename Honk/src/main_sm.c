@@ -10,6 +10,7 @@
 #include <timers.h>
 #include "IR.h"
 #include "neopixel.c"
+extern void map2color(int *red, int *green, int *blue, int degree);
 
 #define NO_BUTTON 0x0 // no buttons pressed
 #define BUTTON_1 0x1  // button 0 pressed
@@ -26,24 +27,19 @@ typedef enum
     STATE_PROCESSING,
 } main_sm_t;
 
-void uart_receive()
-{
-    // receive packet from stm32
-    // return packet
-}
-
-void uart_send()
-{
-    // send packet to stm32
-}
+int BT_Recv(uint8_t *data);
+int BT_Send(uint8_t *data, int len);
 
 int initFunc(void) // initializes everything we need
 {
-    BOARD_Init();
-    QEI_Init();
-    PWM_Init();
-    BUTTONS_Init();
+    BOARD_Init();      // Board initialization
+    QEI_Init();        // Encoder + encoder RGB initialization
+    PWM_Init();        // PWM initialization
+    BUTTONS_Init();    // Button initialization
+    TIMER_Init();      // Timer initialization
+    WS2812_SPI_Init(); // RGB library initialization
 
+    // All libraries should now be ready to go.
     return SUCCESS;
 }
 
@@ -55,6 +51,11 @@ int main(void)
     int green = 0;
     int blue = 0;
     int color_select = FALSE;
+    char color[20];
+
+    uint8_t BT_buffer[256];
+    int chars_read = 0;
+
     while (TRUE)
     {
         uint8_t buttons = ~buttons_state() & 0xF;          // read the buttons and invert the bits
@@ -81,13 +82,16 @@ int main(void)
         // spell 2 > spell 3
         // spell 3 > spell 1
 
+        chars_read = BT_Recv(BT_buffer); // read the bluetooth buffer
+        BT_buffer[chars_read] = '\0';    // null terminate the buffer
+
         switch (state)
         {
         case STATE_IDLE:
             // wait for connection confirmation from uart initialization
-            if (strcmp("connected", uart_receive()) == 0)
+            if (strcmp("connected", BT_buffer) == 0)
             { // if the string is equal to "connected"
-                // uart_receive is undeclared, will be packet handler on stm32
+                // BT_Recv is undeclared, will be packet handler on stm32
 
                 // set player ID from bluetooth message
 
@@ -103,35 +107,35 @@ int main(void)
             // }
             if (red == 255 && green == 10 && blue == 255)
             {
-                char *color = "dark blue";
+                strcpy(color, "navy");
             }
             else if (red == 0 && green == 100 && blue == 200)
             {
-                char *color = "light pink";
+                strcpy(color, "rose");
             }
             else if (red == 255 && green == 255 && blue == 0)
             {
-                char *color = "green";
+                strcpy(color, "green");
             }
             else if (red == 0 && green == 255 && blue == 255)
             {
-                char *color = "red";
+                strcpy(color, "red");
             }
             else if (red == 0 && green == 100 && blue == 255)
             {
-                char *color = "light blue";
+                strcpy(color, "cyan");
             }
             else if (red == 255 && green == 255 && blue == 255)
             {
-                char *color = "yellow";
+                strcpy(color, "yellow");
             }
             else if (red == 255 && green == 10 && blue == 255)
             {
-                char *color = "purple";
+                strcpy(color, "purple");
             }
             else if (red == 255 && green == 255 && blue == 255)
             {
-                char *color = "white";
+                strcpy(color, "white");
             }
             if ((buttons & (BUTTON_2 | BUTTON_3 | BUTTON_4)))
             {
@@ -142,16 +146,20 @@ int main(void)
             break;
         case STATE_WAIT:
             // wait for confirmation from stm32
-            if (strcmp("ack", uart_receive()) == 0)
+            if (strcmp("quack", BT_buffer) == 0)
             {                        // if the string is equal to "confirmed"
                 state = STATE_START; // change the state to STATE_START
             }
-            uart_send(*color);  // not a real function, just pseudo code    
+            else
+            {
+                // uart_send(*color); // not a real function, just pseudo code
+                BT_Send(color, strlen(color)); // send the color to the stm32
+            }
             break;
         case STATE_START:
             // start the process
             // if IR receiver counts x amount of pulses
-            if ((IR_receiver_count() == 10) && (TIMERS_GetMicroSeconds() > 5000))
+            if ((IR_receiver_count() != id * 3) && (TIMERS_GetMicroSeconds() > 5000))
             { // if the IR receiver counts 10 pulses
                 // send hit and time to stm32
                 char time = itoa(TIMERS_GetMicroSeconds(), time, 10); // convert the time to a string
@@ -159,7 +167,7 @@ int main(void)
                 uart_send(pkt);                                       // not a real function, just pseudo code
                 state = STATE_PROCESSING;                             // change the state to STATE_PROCESSING
             }
-            else if (strcmp("miss", uart_receive()) == 0)
+            else if (strcmp("miss", BT_buffer) == 0)
             {                             // if the string is equal to "missed"
                 state = STATE_PROCESSING; // change the state to STATE_WAIT
             }
@@ -167,7 +175,7 @@ int main(void)
         case STATE_PROCESSING:
             // disable buttons until acknolwedgement from stm32
             // wait for confirmation from stm32
-            if (strcmp("ack", uart_receive()) == 0)
+            if (strcmp("ack", BT_buffer) == 0)
             {                        // if the string is equal to "confirmed"
                 state = STATE_START; // change the state to STATE_IDLE
             }
