@@ -13,7 +13,7 @@
 #include <stdint.h>
 #include <uart.h> // uart library from adam
 
-// BT_HandleTypeDef hbt; // BT handle
+#define DATA_SIZE 128
 
 /**
  * @Function BT_Init

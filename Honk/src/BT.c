@@ -5,11 +5,10 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#define BT_test
+// #define BT_test
 
 #define UART_SPEED 9600
 #define BUFFER_SIZE 128
-#define DATA_SIZE 128
 
 #define HEAD 0xCC
 #define TAIL 0xB9
@@ -262,7 +261,7 @@ int send_packet(uint8_t id, uint8_t length, uint8_t *data)
 int main(void)
 {
     BOARD_Init();
-    BT_Init(&buffer, &tmp_packet);
+    BT_Init();
     printf("init done\n");
 
     uint8_t data[DATA_SIZE];
