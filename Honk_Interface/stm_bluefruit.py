@@ -249,7 +249,6 @@ if __name__ == "__main__":
         device_count = init()
 
         alphabet_idx = [0 for _ in range(device_count)]
-        # packet_counts = [[0, 0] for _ in range(device_count)]
         packet_times = [list() for _ in range(device_count)]
         packet_drops = [0 for _ in range(device_count)]
         last_sent = ["" for _ in range(device_count)]
@@ -299,12 +298,6 @@ if __name__ == "__main__":
                     packet_drops[i] += 1
                     last_sent_time[i] = time.time()
 
-                # send(
-                #     i,
-                #     f"{alphabet[alphabet_idx:(min(alphabet_idx+5, len(alphabet)))]}",
-                # )
-
-        # print(f"Packet counts: {packet_counts}")
         for i in range(device_count):
             print(
                 f"UART: {i} - Avg Packet Time: {round(sum(packet_times[i]) / len(packet_times[i]), 3)}s, Dropped: {packet_drops[i]}, Total Attempts: {len(packet_times[i]) + packet_drops[i]}, Drop Rate: {round(packet_drops[i] / (len(packet_times[i]) + packet_drops[i]), 3) * 100}%"

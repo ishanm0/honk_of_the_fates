@@ -78,7 +78,9 @@ int BT_Recv(uint8_t *data)
             {
                 start = i;
                 break;
-            } else if (i == DATA_SIZE - 1) {
+            }
+            else if (i == DATA_SIZE - 1)
+            {
                 return ERROR;
             }
         }
@@ -264,66 +266,19 @@ int main(void)
     printf("init done\n");
 
     uint8_t data[DATA_SIZE];
-    uint8_t str[DATA_SIZE];
-    int str_length = 0;
-
-    int count = 0;
-
-    int state = 1; // 0: send until ACK, 1: recv new data
 
     while (1)
     {
         int len = BT_Recv(data);
         if (len != ERROR)
         {
-            // if (state == 0)
-            // {
-            //     int match = 1;
-            //     for (int i = 3; i < len - 1; i++)
-            //     {
-            //         if (data[i] != str[i - 3])
-            //         {
-            //             match = 0;
-            //             break;
-            //         }
-            //     }
-            //     if (match && data[0] == 'A' && data[1] == 'C' && data[2] == 'K')
-            //     {
-            //         printf("ACK ");
-            //         for (int i = 3; i < len - 1; i++)
-            //         {
-            //             printf("%c", data[i]);
-            //         }
-            //         printf(" %d", data[len - 1]);
-            //         printf("\n");
-            //         state = 1;
-            //     } else {
-            //         count++;
-            //         for (int i = 0; i < str_length; i++)
-            //         {
-            //             data[i] = str[i];
-            //         }
-            //         data[str_length] = count;
-            //         BT_Send(data, str_length + 1);
-            //     }
-            // }
-            // else
-            // {
-                printf("data: '");
-                for (int i = 0; i < len; i++)
-                {
-                    printf("%c", data[i]);
-                    // str[i] = data[i];
-                }
-                printf("'\n");
-                // str_length = len;
-
-                // count = 0;
-                // data[len] = count;
-                // BT_Send(data, len + 1);
-                BT_Send(data, len);
-                // state = 0;
-            // }
+            printf("data: '");
+            for (int i = 0; i < len; i++)
+            {
+                printf("%c", data[i]);
+            }
+            printf("'\n");
+            BT_Send(data, len);
         }
     }
 }
