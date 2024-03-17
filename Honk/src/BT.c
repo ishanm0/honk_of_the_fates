@@ -4,11 +4,13 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <timers.h>
 
-// #define BT_test
+#define BT_test
 
 #define UART_SPEED 9600
 #define BUFFER_SIZE 128
+#define RECV_TIMEOUT 50
 
 #define HEAD 0xCC
 #define TAIL 0xB9
@@ -38,8 +40,12 @@ packet_t tmp_packet;
 uint8_t in_packet_id = 0;
 uint8_t out_packet_id = 0;
 uint8_t rx_buffer[DATA_SIZE];
+
+int new_data = 0;
 int packet_ready = 0;
 uint8_t tmp_len = 0;
+
+uint32_t last_recv_time = 0;
 
 void packet_parser(packet_t packet, uint8_t c);
 int send_packet(uint8_t id, uint8_t length, uint8_t *data);
@@ -65,12 +71,10 @@ int BT_Init()
 
 int BT_Recv(uint8_t *data)
 {
-    memset(rx_buffer, 0, DATA_SIZE);
-    if (Uart1_rx(rx_buffer, DATA_SIZE) == SUCCESS)
+    if (new_data)
     {
-        HAL_Delay(50);
-
-        int start = 0;
+        new_data = 0;
+        int start = -1;
         for (int i = 0; i < DATA_SIZE; i++)
         {
             if (rx_buffer[i] == HEAD)
@@ -78,46 +82,48 @@ int BT_Recv(uint8_t *data)
                 start = i;
                 break;
             }
-            else if (i == DATA_SIZE - 1)
-            {
-                return ERROR;
-            }
         }
 
-        for (int i = 0; i < DATA_SIZE; i++)
+        if (start > -1)
         {
-            packet_parser(tmp_packet, rx_buffer[(start + i) % DATA_SIZE]);
-            if (packet_ready && (tmp_packet->id > in_packet_id || tmp_packet->id == 0))
+            for (int i = 0; i < DATA_SIZE; i++)
             {
-                packet_ready = 0;
-                in_packet_id = tmp_packet->id;
-                buffer->buffer[buffer->tail]->id = tmp_packet->id;
-                buffer->buffer[buffer->tail]->length = tmp_packet->length;
-                for (int j = 0; j < tmp_packet->length; j++)
+                packet_parser(tmp_packet, rx_buffer[(start + i) % DATA_SIZE]);
+                if (packet_ready && (tmp_packet->id > in_packet_id || tmp_packet->id == 0))
                 {
-                    buffer->buffer[buffer->tail]->data[j] = tmp_packet->data[j];
+                    packet_ready = 0;
+                    in_packet_id = tmp_packet->id;
+                    buffer->buffer[buffer->tail]->id = tmp_packet->id;
+                    buffer->buffer[buffer->tail]->length = tmp_packet->length;
+                    for (int j = 0; j < tmp_packet->length; j++)
+                    {
+                        buffer->buffer[buffer->tail]->data[j] = tmp_packet->data[j];
+                    }
+                    buffer->tail = (buffer->tail + 1) % BUFFER_SIZE;
+                    if (buffer->tail == buffer->head)
+                    {
+                        buffer->full = 1;
+                    }
+                    buffer->empty = 0;
                 }
-                buffer->tail = (buffer->tail + 1) % BUFFER_SIZE;
-                if (buffer->tail == buffer->head)
-                {
-                    buffer->full = 1;
-                }
-                buffer->empty = 0;
             }
         }
+        memset(rx_buffer, 0, DATA_SIZE);
+    }
+
+    if ((TIMERS_GetMilliSeconds() - last_recv_time) >= RECV_TIMEOUT && Uart1_rx(rx_buffer, DATA_SIZE) == SUCCESS)
+    {
+        new_data = 1;
+        last_recv_time = TIMERS_GetMilliSeconds();
     }
 
     if (!buffer->empty)
     {
-        // printf("data: '");
         for (int i = 0; i < buffer->buffer[buffer->head]->length; i++)
         {
-            // printf("%c", buffer->buffer[buffer->head]->data[i]);
             data[i] = buffer->buffer[buffer->head]->data[i];
         }
-        // printf("'\n");
 
-        // send_packet(buffer->buffer[buffer->head]->id, buffer->buffer[buffer->head]->length, buffer->buffer[buffer->head]->data);
         tmp_len = buffer->buffer[buffer->head]->length;
 
         buffer->head = (buffer->head + 1) % BUFFER_SIZE;
@@ -133,9 +139,9 @@ int BT_Recv(uint8_t *data)
 
 int BT_Send(uint8_t *data, int len)
 {
-    send_packet(out_packet_id, len, data);
+    int ret = send_packet(out_packet_id, len, data);
     out_packet_id = (out_packet_id + 1) % 256;
-    return SUCCESS;
+    return ret;
 }
 
 /**
@@ -253,7 +259,6 @@ int send_packet(uint8_t id, uint8_t length, uint8_t *data)
     {
         return ERROR;
     }
-    HAL_Delay(5);
     return SUCCESS;
 }
 
@@ -261,6 +266,7 @@ int send_packet(uint8_t id, uint8_t length, uint8_t *data)
 int main(void)
 {
     BOARD_Init();
+    TIMER_Init();
     BT_Init();
     printf("init done\n");
 
@@ -271,12 +277,12 @@ int main(void)
         int len = BT_Recv(data);
         if (len != ERROR)
         {
-            printf("data: '");
-            for (int i = 0; i < len; i++)
-            {
-                printf("%c", data[i]);
-            }
-            printf("'\n");
+            // printf("data: '");
+            // for (int i = 0; i < len; i++)
+            // {
+            //     printf("%c", data[i]);
+            // }
+            // printf("'\n");
             BT_Send(data, len);
         }
     }

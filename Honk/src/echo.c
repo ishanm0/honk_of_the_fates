@@ -2,6 +2,9 @@
 #include "BT.h"
 #include <stdio.h>
 
+// #define Echo_main
+
+#ifdef Echo_main
 int main(void)
 {
     BOARD_Init();
@@ -25,3 +28,4 @@ int main(void)
         }
     }
 }
+#endif

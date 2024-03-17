@@ -15,9 +15,9 @@ END2 = b"\x0A"
 
 MAX_DATA_LEN = 127
 
-DEBUG_SEND = True
-DEBUG_RECV = True
-DEBUG_RECV_DROP = True
+DEBUG_SEND = False
+DEBUG_RECV = False
+DEBUG_RECV_DROP = False
 
 # Get the BLE provider for the current platform.
 ble = Adafruit_BluefruitLE.get_provider()
@@ -105,6 +105,15 @@ def parse_packet(input):
             state = 0
         else:
             state = 0
+
+
+def debug_modes(
+    send: bool = DEBUG_SEND, recv: bool = DEBUG_RECV, recv_drop: bool = DEBUG_RECV_DROP
+):
+    global DEBUG_SEND, DEBUG_RECV, DEBUG_RECV_DROP
+    DEBUG_SEND = send
+    DEBUG_RECV = recv
+    DEBUG_RECV_DROP = recv_drop
 
 
 def init() -> int:
@@ -247,6 +256,7 @@ if __name__ == "__main__":
         alphabet = "abcdefghijklmnopqrstuvwxyz"
 
         device_count = init()
+        # debug_modes(True, True, True)
 
         alphabet_idx = [0 for _ in range(device_count)]
         packet_times = [list() for _ in range(device_count)]
@@ -260,7 +270,7 @@ if __name__ == "__main__":
         # Once connected do everything else in a try/finally to make sure the device
         # is disconnected when done.
 
-        for _ in range(1000):
+        for _ in range(100):
             queue = recv()
             for i in range(device_count):
                 transaction[i] = False
@@ -300,7 +310,7 @@ if __name__ == "__main__":
 
         for i in range(device_count):
             print(
-                f"UART: {i} - Avg Packet Time: {round(sum(packet_times[i]) / len(packet_times[i]), 3)}s, Dropped: {packet_drops[i]}, Total Attempts: {len(packet_times[i]) + packet_drops[i]}, Drop Rate: {round(packet_drops[i] / (len(packet_times[i]) + packet_drops[i]), 3) * 100}%"
+                f"UART: {i} - Avg Packet Time: {round(sum(packet_times[i]) / len(packet_times[i]), 3)}s, Dropped: {packet_drops[i]}, Total Attempts: {len(packet_times[i]) + packet_drops[i]}, Drop Rate: {round(100 * packet_drops[i] / (len(packet_times[i]) + packet_drops[i]), 3)}%"
             )
 
     run(test)
