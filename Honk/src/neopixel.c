@@ -83,9 +83,9 @@ int brightness = 20;
 
 void setDefaultRGB(int RED, int GREEN, int BLUE)
 {
-    DEFAULT_RGB[0] = RED;
-    DEFAULT_RGB[1] = GREEN;
-    DEFAULT_RGB[2] = BLUE;
+    DEFAULT_RGB[0] = RED <= 255 ? RED : 255;
+    DEFAULT_RGB[1] = GREEN <= 255 ? GREEN : 255;
+    DEFAULT_RGB[2] = BLUE <= 255 ? BLUE : 255;
 }
 
 void getDefaultRGB(int *RED, int *GREEN, int *BLUE)
