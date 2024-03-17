@@ -1,15 +1,21 @@
+#include <math.h>
+// #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
 #include <Board.h>
+
 #include <ADC.h>
+#include <buttons.h>
 #include <pwm.h>
 #include <QEI.h>
-#include <stdbool.h>
-#include <math.h>
-#include <buttons.h>
 #include <timers.h>
+
+#include "BT.h"
 #include "IR.h"
-#include "neopixel.c"
+#include "neopixel.h"
+
 extern void map2color(int *red, int *green, int *blue, int degree);
 
 #define NO_BUTTON 0x0 // no buttons pressed
@@ -17,6 +23,9 @@ extern void map2color(int *red, int *green, int *blue, int degree);
 #define BUTTON_2 0x2  // button 1 pressed
 #define BUTTON_3 0x4  // button 2 pressed
 #define BUTTON_4 0x8  // button 3 pressed
+
+// The player's ID number as will be assigned by the computer.
+int playerID = 0;
 
 typedef enum
 { // see google doc stm32 state machine
@@ -27,9 +36,6 @@ typedef enum
     STATE_PROCESSING,
 } main_sm_t;
 
-int BT_Recv(uint8_t *data);
-int BT_Send(uint8_t *data, int len);
-
 int initFunc(void) // initializes everything we need
 {
     BOARD_Init();      // Board initialization
@@ -37,6 +43,7 @@ int initFunc(void) // initializes everything we need
     PWM_Init();        // PWM initialization
     BUTTONS_Init();    // Button initialization
     TIMER_Init();      // Timer initialization
+    BT_Init();         // Bluetooth initialization
     WS2812_SPI_Init(); // RGB library initialization
 
     // All libraries should now be ready to go.
@@ -50,7 +57,7 @@ int main(void)
     int red = 0;
     int green = 0;
     int blue = 0;
-    int color_select = FALSE;
+    // int color_select = FALSE; // <---- what is this for exactly? ???????
     char color[20];
 
     uint8_t BT_buffer[256];
@@ -159,16 +166,19 @@ int main(void)
         case STATE_START:
             // start the process
             // if IR receiver counts x amount of pulses
-            if ((IR_Count() != id * 3) && (TIMERS_GetMicroSeconds() > 5000))
+            if ((IR_Count() != playerID * 3) && (TIMERS_GetMicroSeconds() > 5000))
             { // if the IR receiver counts 10 pulses
                 // send hit and time to stm32
-                char time = itoa(TIMERS_GetMicroSeconds(), time, 10); // convert the time to a string
-                char pkt = "hit " + time;                             // send the string "hit" and the time
-                uart_send(pkt);                                       // not a real function, just pseudo code
+                // char time = itoa(TIMERS_GetMicroSeconds(), time, 10); // convert the time to a string
+                // char pkt = "hit " + time;                             // send the string "hit" and the time
+                // uart_send(pkt);                                       // not a real function, just pseudo code
+                
+                // NEED TO CREATE AND SEND THE PACKET SHOWING A REGISTERED HIT !!!!!!!!!!!!!!!!!!!
+                
                 state = STATE_PROCESSING;                             // change the state to STATE_PROCESSING
             }
             else if (strcmp("miss", (char *)BT_buffer) == 0)
-            {                             // if the string is equal to "missed"
+            {                             // if the string is equal to "missed"y
                 state = STATE_PROCESSING; // change the state to STATE_WAIT
             }
             break;

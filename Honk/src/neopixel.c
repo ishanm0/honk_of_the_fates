@@ -13,6 +13,8 @@
 
 #include <inttypes.h>
 
+#include "neopixel.h"
+
 // void printBinary(uint32_t num)
 // {
 //     for (int i = 31; i >= 0; --i)
@@ -79,9 +81,26 @@ uint8_t DEFAULT_RGB[] = {255, 0, 0};
 //      Affects ws2812_spi()
 int brightness = 20;
 
+void setDefaultRGB(int RED, int GREEN, int BLUE)
+{
+    DEFAULT_RGB[0] = RED;
+    DEFAULT_RGB[1] = GREEN;
+    DEFAULT_RGB[2] = BLUE;
+}
+
+void getDefaultRGB(int *RED, int *GREEN, int *BLUE)
+{
+    *RED = DEFAULT_RGB[0];
+    *GREEN = DEFAULT_RGB[1];
+    *BLUE = DEFAULT_RGB[2];
+}
+
 // set a given LED to given RGB colour values
 void setLED(int led, int RED, int GREEN, int BLUE)
 {
+    if (led < 0 || led >= NUM_LED)
+        return;
+
     LED_Data[led][0] = led;
     LED_Data[led][1] = GREEN;
     LED_Data[led][2] = RED;
@@ -127,13 +146,6 @@ void WS2812_Send(void)
 // pulser variables
 int runningPulse = FALSE; // is s pulse animation active
 int pulse_propagation = 0;
-typedef enum
-{
-    ROCK,
-    PAPER,
-    SISSORS,
-    UNSPECIFIED
-} spell;
 
 uint32_t lastUpdate = 0;
 uint32_t tempTime = 0;
@@ -143,10 +155,17 @@ uint32_t tempTime = 0;
 //  service a current animation or start a new one if there is none active
 //  This function is compute light when called unless it si time for a new frame.
 //      Thus it is safe to call repeatedly.
-void spellPulse(spell used_spell)
+// the "start" input can start a new pulse if one hasn't been started yet
+//      it should be either a bool TRUE or FALSE
+void spellPulse(spell used_spell, int start)
 {
     // check current time
     tempTime = TIMERS_GetMilliSeconds();
+
+    // the "start" input can start a new pulse if one hasn't been started yet
+    if (start)
+        runningPulse = TRUE;
+
     // If currently running an animation and ready to do the next frame:
     if (runningPulse && tempTime > (lastUpdate + 10))
     {
