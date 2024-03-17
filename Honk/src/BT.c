@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <timers.h>
 
-#define BT_test
+// #define BT_test
 
 #define UART_SPEED 9600
 #define BUFFER_SIZE 128
