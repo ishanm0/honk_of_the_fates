@@ -5,7 +5,9 @@ import stm_bluefruit as bt
 
 RESEND_TIMEOUT = 0.5  # seconds for resending messages
 SHOT_PAIRING_TIMEDELTA = 0.5  # seconds for shot pairings (max time diff between one player's shot & another's receive)
-RPS_TIMEOUT = 1  # seconds for RPS pairings (max time diff between shots between two players)
+RPS_TIMEOUT = (
+    1  # seconds for RPS pairings (max time diff between shots between two players)
+)
 
 ACK_str = b"\x01".decode("utf-8")
 # ACK (rest of message will be identical to the original message being ACKed - the second char will be the original message’s first char)
@@ -16,12 +18,12 @@ AssignID_str = b"\x02".decode("utf-8")
 # 0x02 [msg id, 1 char] [player id, 1 char] (3 bytes)
 # (laptop → STM)
 
-ShotSent_str = b"\x03".decode("utf-8")
+PPSent_str = b"\x03".decode("utf-8")
 # shot sent
 # 0x03 [msg id, 1 char] [player id, 1 char] [btn #, 1 char] (4 bytes)
 # (STM → laptop)
 
-ShotRecv_str = b"\x04".decode("utf-8")
+PPRecv_str = b"\x04".decode("utf-8")
 # shot received
 # 0x04 [msg id, 1 char] [receiving player’s id, 1 char] [sending player’s id, 1 char] (4 bytes)
 # (STM → laptop)
@@ -55,6 +57,7 @@ next_msg_id = 0
 def send_ack(player_id: int, msg_id: str):
     global already_sent_ack
     already_sent_ack.add(msg_id)
+    print(f"Sending ACK for message {msg_id.encode('utf-8')} to player {player_id}")
     bt.send(player_id, ACK_str + msg_id)
 
 
@@ -80,6 +83,13 @@ def send(id: int, msg_type: str, msg_str: str, existing_id: str = None):
         )
         # increment the next_msg_id
         next_msg_id = (next_msg_id + 1) % 256
+        print(
+            (
+                waiting_to_recv_ack[id][-1][2]
+                + waiting_to_recv_ack[id][-1][0]
+                + waiting_to_recv_ack[id][-1][3]
+            ).encode("utf-8")
+        )
         # send the ID message
         bt.send(
             id,  # player_id
@@ -115,9 +125,10 @@ def main():
     colors = ["" for _ in range(device_count)]
 
     bt.init(device_count)
-    bt.debug_modes(True, True, True)
+    bt.debug_modes(False, True, True)
 
     for i in range(device_count):
+        print(f"Waiting for device {i} to connect...")
         send(i, Connection_str, "")
 
     while any([len(waiting_to_recv_ack[i]) > 0 for i in range(device_count)]):
@@ -125,6 +136,7 @@ def main():
         queue = bt.recv()
         for i in range(device_count):
             for data in queue[i]:
+                print('data', data)
                 # if the message is an ACK
                 if data[0] == ACK_str:
                     # remove the message from the waiting_to_recv_ack list
@@ -146,6 +158,8 @@ def main():
                         waiting_to_recv_ack[i][j][3],  # msg_str
                         waiting_to_recv_ack[i][j][0],  # msg_id
                     )
+    
+    print("All devices connected!")
 
     # TODO: get color from each device & send back ACKs
     while any([colors[i] == "" for i in range(device_count)]):
@@ -184,6 +198,8 @@ def main():
                 if data[0] == ACK_str:
                     # remove the message from the waiting_to_recv_ack list
                     recv_ack(i, data[1])
+                elif data[0] == Color_str:
+                    send_ack(i, data[1])
 
         # send any messages that need to be resent
         for i in range(device_count):
@@ -203,14 +219,14 @@ def main():
         recv_time = time.time()
         for i in range(device_count):
             for data in queue[i]:
-                if data[0] == ShotSent_str:
+                if data[0] == PPSent_str:
                     if data[1] not in already_sent_ack:
                         shot_sent_queue[i].append(
                             (recv_time, data[3].encode("utf-8"))
                         )  # (time_sent, btn #)
 
                     send_ack(i, data[1])
-                elif data[0] == ShotRecv_str:
+                elif data[0] == PPRecv_str:
                     if data[1] not in already_sent_ack:
                         if data[3].encode("utf-8") not in ids:
                             print(
@@ -221,6 +237,8 @@ def main():
                             (recv_time, ids.index(data[3].encode("utf-8")))
                         )  # (time_sent, sending player's ID)
 
+                    send_ack(i, data[1])
+                elif data[0] == Color_str:
                     send_ack(i, data[1])
                 elif data[0] == ACK_str:
                     recv_ack(i, data[1])
@@ -308,7 +326,10 @@ def main():
                     handled_pairings.add(j)
 
         for i in range(len(shot_pairings)):
-            if i not in handled_pairings and time.time() - shot_pairings[i][0] < RPS_TIMEOUT:
+            if (
+                i not in handled_pairings
+                and time.time() - shot_pairings[i][0] < RPS_TIMEOUT
+            ):
                 print(
                     f"Player {shot_pairings[i][2]} beat Player {shot_pairings[i][1]}!"
                 )
@@ -325,10 +346,11 @@ def main():
             if i not in handled_pairings
         ]
 
-        for w in wins:
-            send(w, Win_str, int.to_bytes(w, 1, "big").decode("utf-8"))
-        for l in losses:
-            send(l, Loss_str, int.to_bytes(l, 1, "big").decode("utf-8"))
+        # TODO: implement win/loss message receiving on STM side
+        # for w in wins:
+        #     send(w, Win_str, int.to_bytes(w, 1, "big").decode("utf-8"))
+        # for l in losses:
+        #     send(l, Loss_str, int.to_bytes(l, 1, "big").decode("utf-8"))
 
         # send any messages that need to be resent
         for i in range(device_count):

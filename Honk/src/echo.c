@@ -26,6 +26,12 @@ int main(void)
                 printf("%c", data[i]);
             }
             printf("'\n");
+            printf("data: '");
+            for (int i = 0; i < len; i++)
+            {
+                printf("%x ", data[i]);
+            }
+            printf("'\n");
             BT_Send(data, len);
         }
     }

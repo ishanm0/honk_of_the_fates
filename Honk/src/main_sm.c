@@ -18,6 +18,8 @@
 
 extern void map2color(int *red, int *green, int *blue, int degree);
 
+#define main_sm
+
 #define NO_BUTTON 0x0 // no buttons pressed
 #define BUTTON_1 0x1  // button 0 pressed
 #define BUTTON_2 0x2  // button 1 pressed
@@ -33,6 +35,7 @@ extern void map2color(int *red, int *green, int *blue, int degree);
 #define COLOR_ID 0x7
 #define CONN_ID 0x8
 
+#define BUTTON_DEBOUNCE 500        // ms for button debounce
 #define RESENDS_CHECK_TIMEOUT 10   // ms between checks for whether messages need to be resent
 #define RESEND_TIMEOUT 500         // ms for resending messages
 #define SHOT_PAIRING_TIMEDELTA 500 // ms for shot pairings (max time diff between one player's shot & another's receive)
@@ -78,10 +81,13 @@ int initFunc(void) // initializes everything we need
     PWM_SetFrequency(30000);     // set to 30kHz
     PWM_Stop(PWM_5);             // stop the sound until it is activated in loop
 
+    printf("init done\n");
+
     // All libraries should now be ready to go.
     return SUCCESS;
 }
 
+#ifdef main_sm
 int main(void)
 {
     initFunc();
@@ -96,18 +102,21 @@ int main(void)
     int inputHandled = 0;
     uint8_t colorMsgID = 0;
     uint8_t ackID = 0;
+    int lastButtonTime = 0;
 
     while (TRUE)
     {
         uint8_t buttons = ~buttons_state() & 0xF; // read the buttons and invert the bits
 
         chars_read = BT_Recv(BT_buffer); // read the bluetooth buffer
-        BT_buffer[chars_read] = '\0';    // null terminate the buffer
+        // BT_buffer[chars_read] = '\0';    // null terminate the buffer
         // store player id
         inputHandled = 0;
         ackID = 0;
 
-        if (BT_buffer[0] == CONN_ID || alreadyAcked[BT_buffer[1]])
+        // printf("chars read: %d\n", chars_read);
+
+        if (chars_read > 0 && (BT_buffer[0] == CONN_ID || (BT_buffer[0] != ACK_ID && alreadyAcked[BT_buffer[1]])))
         {                                      // if the bluetooth buffer matches CONN_ID (color code assigned from doc), or has already been acknowledged/handled
             inputHandled = BT_buffer[0];       // save the msg type
             BT_buffer[0] = ACK_ID;             // set the first byte of the buffer to ACK_ID (ACK)
@@ -115,7 +124,7 @@ int main(void)
             BT_Send(BT_buffer, 2);             // send ack to laptop
             printf("acking %x\n", inputHandled);
         }
-        else if (BT_buffer[0] == ACK_ID)
+        else if (chars_read > 0 && BT_buffer[0] == ACK_ID)
         {                                  // if message is an acknowledge
             ackID = BT_buffer[1];          // save the message ID being acked in case we need it
             sentMessageLengths[ackID] = 0; // clear the length (used to track whether a message needs to be re-sent)
@@ -123,7 +132,7 @@ int main(void)
             printf("rcved ack\n");
         }
 
-        printf("state: %x\n", state);
+        // printf("state: %x\n", state);
 
         switch (state)
         {
@@ -136,7 +145,7 @@ int main(void)
             break;
 
         case STATE_CHOOSE_COLOR:
-            map2color(&red, &green, &blue, QEI_GetPosition()); // map rotary count to RGB values
+            map2color(&red, &green, &blue, QEI_GetPosition());          // map rotary count to RGB values
             // printf("Red: %d, Green: %d, Blue: %d\n", red, green, blue); // print the RGB values (for debugging purposes
             //  set the duty cycle of the PWM to the RGB values
 
@@ -148,12 +157,13 @@ int main(void)
             // choose color
             if (buttons & (BUTTON_2 | BUTTON_3 | BUTTON_4))
             {
+
                 printf("color button\n");
                 // !!!!!!!!! might break but ez fix bc qei colors is supposed to be 1-100, just print them out and change to actual values
                 {
                     if (red == 255 && green == 10 && blue == 255)
                     {
-                        strcpy(color, "navy");
+                        strcpy(color, "green");
                     }
                     else if (red == 0 && green == 100 && blue == 200)
                     {
@@ -161,7 +171,7 @@ int main(void)
                     }
                     else if (red == 255 && green == 255 && blue == 0)
                     {
-                        strcpy(color, "green");
+                        strcpy(color, "navy");
                     }
                     else if (red == 0 && green == 255 && blue == 255)
                     {
@@ -173,18 +183,18 @@ int main(void)
                     }
                     else if (red == 0 && green == 255 && blue == 0)
                     {
-                        strcpy(color, "yellow");
+                        strcpy(color, "purple");
                     }
                     else if (red == 150 && green == 0 && blue == 255)
                     {
-                        strcpy(color, "purple");
+                        strcpy(color, "yellow");
                     }
                     else if (red == 0 && green == 0 && blue == 0)
                     {
                         strcpy(color, "white");
                     }
                 }
-                printf("color: %s", color);
+                printf("color: %s\n", color);
                 sentMessageGarage[activeID][0] = COLOR_ID;
                 sentMessageGarage[activeID][1] = activeID;
                 for (int i = 0; i < strlen(color); i++)
@@ -211,7 +221,7 @@ int main(void)
             break;
 
         case STATE_WAIT_ASSIGN:
-            if (!inputHandled && BT_buffer[0] == ASSIGN_ID)
+            if (!inputHandled && chars_read > 0 && BT_buffer[0] == ASSIGN_ID)
             {
                 playerID = BT_buffer[2];
                 printf("playerid: %x\n", playerID);
@@ -225,9 +235,10 @@ int main(void)
 
         case STATE_START:
             // service button input
-            if (buttons & BUTTON_2)
+            if ((buttons & BUTTON_2) && (TIMERS_GetMilliSeconds() - lastButtonTime > BUTTON_DEBOUNCE))
             {
                 printf("button 2\n");
+                lastButtonTime = TIMERS_GetMilliSeconds();
                 sentMessageGarage[activeID][0] = PP_SENT_ID;
                 sentMessageGarage[activeID][1] = activeID;
                 sentMessageGarage[activeID][2] = playerID;
@@ -241,9 +252,10 @@ int main(void)
                 spellPulse(UNSPECIFIED, TRUE);
                 sendIRflag = TRUE; // set flag so it sends IR
             }
-            else if (buttons & BUTTON_3)
+            else if ((buttons & BUTTON_3) && (TIMERS_GetMilliSeconds() - lastButtonTime > BUTTON_DEBOUNCE))
             {
                 printf("button 3\n");
+                lastButtonTime = TIMERS_GetMilliSeconds();
                 sentMessageGarage[activeID][0] = PP_SENT_ID;
                 sentMessageGarage[activeID][1] = activeID;
                 sentMessageGarage[activeID][2] = playerID;
@@ -257,9 +269,10 @@ int main(void)
                 spellPulse(UNSPECIFIED, TRUE);
                 sendIRflag = TRUE; // set flag so it sends IR
             }
-            else if (buttons & BUTTON_4)
+            else if ((buttons & BUTTON_4) && (TIMERS_GetMilliSeconds() - lastButtonTime > BUTTON_DEBOUNCE))
             {
                 printf("button 4\n");
+                lastButtonTime = TIMERS_GetMilliSeconds();
                 sentMessageGarage[activeID][0] = PP_SENT_ID;
                 sentMessageGarage[activeID][1] = activeID;
                 sentMessageGarage[activeID][2] = playerID;
@@ -291,11 +304,11 @@ int main(void)
             // service IR reception
             if (IR_Detect() == TRUE)
             {
+                printf("ir detected\n");
                 flag = TRUE;
             }
             if ((IR_timecheck() + 300 < TIMERS_GetMilliSeconds()) && (flag == TRUE))
             {
-
                 if (!(abs(IR_Count() - playerID * 3) <= 1))
                 {
                     modulo = IR_Count() % 3;
@@ -339,3 +352,4 @@ int main(void)
         }
     }
 }
+#endif
