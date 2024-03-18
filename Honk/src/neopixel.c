@@ -13,7 +13,7 @@
 
 // Set up SPI:
 #define WS2812_SPI SPI2
-#define WS2812_SPI_GPIO_PORT GPIOB // GPIOB for SPI2
+#define WS2812_SPI_GPIO_PORT GPIOB      // GPIOB for SPI2
 #define WS2812_SPI_SCK_PIN GPIO_PIN_13  // PB13 for SPI2_SCK
 #define WS2812_SPI_MOSI_PIN GPIO_PIN_15 // PB15 for SPI2_MOSI
 
@@ -29,33 +29,33 @@ void WS2812_SPI_Init(void)
     /* SPI SCK and MOSI GPIO pin configuration */
     GPIO_InitTypeDef GPIO_InitStruct;
     GPIO_InitStruct.Pin = WS2812_SPI_SCK_PIN | WS2812_SPI_MOSI_PIN; // SCK and MOSI pins
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP; // Alternate function push-pull
-    GPIO_InitStruct.Pull = GPIO_PULLUP; // Pull-up
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH; // High speed
-    GPIO_InitStruct.Alternate = GPIO_AF5_SPI2; // Alternate function 5 for SPI2
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;                         // Alternate function push-pull
+    GPIO_InitStruct.Pull = GPIO_PULLUP;                             // Pull-up
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;                   // High speed
+    GPIO_InitStruct.Alternate = GPIO_AF5_SPI2;                      // Alternate function 5 for SPI2
     HAL_GPIO_Init(WS2812_SPI_GPIO_PORT, &GPIO_InitStruct);
 
     /* SPI initialization */
     hspi.Instance = WS2812_SPI;
     hspi.Init.Mode = SPI_MODE_MASTER;
-    hspi.Init.Direction = SPI_DIRECTION_1LINE; // 1-line bidirectional data mode
-    hspi.Init.DataSize = SPI_DATASIZE_8BIT; // 8-bit data
-    hspi.Init.CLKPolarity = SPI_POLARITY_LOW; // Clock polarity low
-    hspi.Init.CLKPhase = SPI_PHASE_1EDGE; // Clock phase 1st edge
-    hspi.Init.NSS = SPI_NSS_SOFT; // Software secondary management
+    hspi.Init.Direction = SPI_DIRECTION_1LINE;              // 1-line bidirectional data mode
+    hspi.Init.DataSize = SPI_DATASIZE_8BIT;                 // 8-bit data
+    hspi.Init.CLKPolarity = SPI_POLARITY_LOW;               // Clock polarity low
+    hspi.Init.CLKPhase = SPI_PHASE_1EDGE;                   // Clock phase 1st edge
+    hspi.Init.NSS = SPI_NSS_SOFT;                           // Software secondary management
     hspi.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16; // Adjust this as necessary for your LED timing
-    hspi.Init.FirstBit = SPI_FIRSTBIT_MSB; // MSB first
-    hspi.Init.TIMode = SPI_TIMODE_DISABLE; // Disable TI mode
-    hspi.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE; // Disable CRC calculation, CRC is cyclic redundancy check
-    hspi.Init.CRCPolynomial = 10039; // previously 10
+    hspi.Init.FirstBit = SPI_FIRSTBIT_MSB;                  // MSB first
+    hspi.Init.TIMode = SPI_TIMODE_DISABLE;                  // Disable TI mode
+    hspi.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;  // Disable CRC calculation, CRC is cyclic redundancy check
+    hspi.Init.CRCPolynomial = 10039;                        // previously 10
     HAL_SPI_Init(&hspi);
 }
 
 // RGB functionality
 
 // set up LED color storage
-#define NUM_LED 22 // number of LEDs
-uint8_t LED_Data[NUM_LED][4]; // 4 bytes per LED: G, R, B, 0
+#define NUM_LED 22                   // number of LEDs
+uint8_t LED_Data[NUM_LED][4];        // 4 bytes per LED: G, R, B, 0
 uint8_t DEFAULT_RGB[] = {255, 0, 0}; // default color: red
 
 // brightness control on if 1, off if 0
@@ -85,13 +85,26 @@ void getDefaultRGB(int *RED, int *GREEN, int *BLUE)
 void setLED(int led, int RED, int GREEN, int BLUE)
 {
     if (led < 0 || led >= NUM_LED)
-    // if led is out of range or the color values are out of range, return
+        // if led is out of range or the color values are out of range, return
         return;
 
     LED_Data[led][0] = led;
     LED_Data[led][1] = GREEN;
     LED_Data[led][2] = RED;
     LED_Data[led][3] = BLUE;
+}
+
+void setAllLEDs(int RED, int GREEN, int BLUE)
+{
+    for (int i = 0; i < NUM_LED; i++)
+    {
+        setLED(i, RED, GREEN, BLUE);
+    }
+}
+
+void defaultAllLEDs()
+{
+    setAllLEDs(DEFAULT_RGB[0], DEFAULT_RGB[1], DEFAULT_RGB[2]);
 }
 
 // sends the correct SPI message to correspond to given RGB colours
@@ -113,7 +126,7 @@ void ws2812_spi(int GREEN, int RED, int BLUE)
     // for each bit in the 24-bit color
     {
         if (((color >> i) & 0x01) == 1)
-        // if the bit is 1, store 1
+            // if the bit is 1, store 1
             sendData[indx++] = 0b110; // store 1
         else
             sendData[indx++] = 0b100; // store 0
@@ -134,7 +147,7 @@ void WS2812_Send(void)
 }
 
 // pulser variables
-int runningPulse = FALSE; // flag for if a pulse is currently running
+int runningPulse = FALSE;  // flag for if a pulse is currently running
 int pulse_propagation = 0; // current position of the pulse
 
 uint32_t lastUpdate = 0;

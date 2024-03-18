@@ -4,9 +4,9 @@ import time
 import stm_bluefruit as bt
 
 RESEND_TIMEOUT = 0.5  # seconds for resending messages
-SHOT_PAIRING_TIMEDELTA = 0.5  # seconds for shot pairings (max time diff between one player's shot & another's receive)
+SHOT_PAIRING_TIMEDELTA = 2  # seconds for shot pairings (max time diff between one player's shot & another's receive)
 RPS_TIMEOUT = (
-    1  # seconds for RPS pairings (max time diff between shots between two players)
+    2  # seconds for RPS pairings (max time diff between shots between two players)
 )
 
 ACK_str = b"\x01".decode("utf-8")
@@ -49,14 +49,14 @@ Connection_str = b"\x08".decode("utf-8")
 # (laptop → STM)
 
 
-already_sent_ack = set()
+already_sent_ack = None
 waiting_to_recv_ack = None
 next_msg_id = 0
 
 
 def send_ack(player_id: int, msg_id: str):
     global already_sent_ack
-    already_sent_ack.add(msg_id)
+    already_sent_ack[player_id].add(msg_id)
     # print(f"Sending ACK for message {msg_id.encode('utf-8')} to player {player_id}")
     bt.send(player_id, ACK_str + msg_id)
 
@@ -118,6 +118,7 @@ def main():
     waiting_to_recv_ack = [list() for _ in range(device_count)]
     shot_sent_queue = [list() for _ in range(device_count)]
     shot_recv_queue = [list() for _ in range(device_count)]
+    already_sent_ack = [set() for _ in range(device_count)]
 
     shot_pairings = list()
     points = {i: 0 for i in range(device_count)}
@@ -125,7 +126,7 @@ def main():
     colors = ["" for _ in range(device_count)]
 
     bt.init(device_count)
-    bt.debug_modes(False, False, True)
+    bt.debug_modes(False, False, False)
 
     for i in range(device_count):
         print(f"Waiting for device {i} to connect...")
@@ -176,9 +177,9 @@ def main():
     ids = []
     for i in range(device_count):
         # generate a random ID for each device
-        tmp_id = random.randint(1, 8)
+        tmp_id = random.randint(1, device_count)
         while tmp_id in ids:
-            tmp_id = random.randint(1, 8)
+            tmp_id = random.randint(1, device_count)
 
         # ids[device_index] = player_id
         ids.append(tmp_id)
@@ -213,22 +214,30 @@ def main():
                         waiting_to_recv_ack[i][j][0],  # msg_id
                     )
 
+    # count = 0
     while True:
+        # print("loop", count)
+        # count += 1
         # check for any new messages
         queue = bt.recv()
         recv_time = time.time()
         for i in range(device_count):
+            # if len(queue[i]) > 0:
+            #     print(f"Device {i} queue: {queue[i]}")
             for data in queue[i]:
+                data = list(data)
+                # print(type(data), data, type(data[0]), data[0])
                 if data[0] == PPSent_str:
-                    if data[1] not in already_sent_ack:
+                    if data[1] not in already_sent_ack[i]:
                         shot_sent_queue[i].append(
                             (recv_time, data[3].encode("utf-8"))
                         )  # (time_sent, btn #)
-                        print(f"Player {i} shot button {data[3].encode('utf-8')}!")
+                        print(f"Player {i} shot button {int.from_bytes(data[3].encode('utf-8'))}!")
 
                     send_ack(i, data[1])
                 elif data[0] == PPRecv_str:
-                    if data[1] not in already_sent_ack:
+                    # print(data[1], data[2], data[3], already_sent_ack[i])
+                    if data[1] not in already_sent_ack[i]:
                         sender_id = int.from_bytes(data[3].encode("utf-8"), "big")
                         if sender_id not in ids:
                             print(
@@ -252,6 +261,7 @@ def main():
         recvs_to_discard = list()
 
         for i in range(device_count):  # i is the receiving player's ID
+            # print(f"shot_recv_queue[{i}]: {shot_recv_queue[i]}")
             for j in range(len(shot_recv_queue[i])):
                 # (i, j) will never be in recvs_to_discard bc we're iterating through those in order
                 # if (i, j) in recvs_to_discard:
@@ -269,22 +279,26 @@ def main():
                                 (recv_shot[0] + sent_shot[0]) / 2,  # time
                                 i,  # receiving player's ID
                                 recv_shot[1],  # sending player's ID
-                                sent_shot[1],  # btn #
+                                int.from_bytes(sent_shot[1], 'big'),  # btn #
                             )
                         )
 
                         recvs_to_discard.append((i, j))
                         shots_to_discard.append((recv_shot[1], k))
 
-        for i, j in recvs_to_discard:
-            shot_recv_queue[i].pop(j)
-        for i, j in shots_to_discard:
-            shot_sent_queue[i].pop(j)
+        shot_recv_queue = [[shot_recv_queue[i][j] for j in range(len(shot_recv_queue[i])) if (i, j) not in recvs_to_discard] for i in range(device_count)]
+        shot_sent_queue = [[shot_sent_queue[i][j] for j in range(len(shot_sent_queue[i])) if (i, j) not in shots_to_discard] for i in range(device_count)]
+        # for i, j in recvs_to_discard:
+        #     shot_recv_queue[i].pop(j)
+        # for i, j in shots_to_discard:
+        #     shot_sent_queue[i].pop(j)
 
         shot_pairings.sort(key=lambda x: x[0])
         handled_pairings = set()
         wins = list()
         losses = list()
+        # if len(shot_pairings) > 0:
+            # print(f"shot_pairings: {shot_pairings}")
         for i in range(len(shot_pairings)):
             for j in range(i + 1, len(shot_pairings)):
                 if (
@@ -300,7 +314,7 @@ def main():
                     if shot_pairings[i][3] == shot_pairings[j][3]:
                         rand_win = random.choice([1, 2])
                         print(
-                            f"Player {shot_pairings[i][1]} and Player {shot_pairings[i][2]} both shot button {shot_pairings[i][3]}, Player {shot_pairings[i][rand_win]} gets the point!"
+                            f"Player {shot_pairings[i][rand_win]} beat Player {shot_pairings[i][1 + rand_win % 2]} in a game of chance!"
                         )
                         wins.append(shot_pairings[i][rand_win])
                         losses.append(shot_pairings[i][1 + rand_win % 2])
@@ -312,7 +326,7 @@ def main():
                         or shot_pairings[i][3] + 3 == shot_pairings[j][3] + 1
                     ):
                         print(
-                            f"Player {shot_pairings[i][2]} beat Player {shot_pairings[i][1]}!"
+                            f"Player {shot_pairings[i][2]} beat Player {shot_pairings[i][1]} in a duel!"
                         )
                         wins.append(shot_pairings[i][2])
                         losses.append(shot_pairings[i][1])
@@ -320,7 +334,7 @@ def main():
                         points[shot_pairings[i][1]] -= 1
                     else:
                         print(
-                            f"Player {shot_pairings[i][1]} beat Player {shot_pairings[i][2]}!"
+                            f"Player {shot_pairings[i][1]} beat Player {shot_pairings[i][2]} in a duel!"
                         )
                         wins.append(shot_pairings[i][1])
                         losses.append(shot_pairings[i][2])
@@ -330,10 +344,12 @@ def main():
                     handled_pairings.add(i)
                     handled_pairings.add(j)
 
+        # if len(shot_pairings) > 0:
+            # print(f"handled_pairings: {handled_pairings}")
         for i in range(len(shot_pairings)):
             if (
                 i not in handled_pairings
-                and time.time() - shot_pairings[i][0] < RPS_TIMEOUT
+                and time.time() - shot_pairings[i][0] > RPS_TIMEOUT
             ):
                 print(
                     f"Player {shot_pairings[i][2]} beat Player {shot_pairings[i][1]}!"
@@ -359,6 +375,7 @@ def main():
 
         # send any messages that need to be resent
         for i in range(device_count):
+            # print(f"waiting_to_recv_ack[{i}]: {waiting_to_recv_ack[i]}")
             for j in range(len(waiting_to_recv_ack[i])):
                 if time.time() - waiting_to_recv_ack[i][j][1] > RESEND_TIMEOUT:
                     waiting_to_recv_ack[i][j][1] = time.time()
@@ -369,6 +386,7 @@ def main():
                         waiting_to_recv_ack[i][j][0],  # msg_id
                     )
 
+        print("  points", points, end="\r")
 
 if __name__ == "__main__":
     bt.run(main)

@@ -196,7 +196,7 @@ def recv() -> list[list[str]]:
     try:
         for i, uart in enumerate(uarts):
             # Now wait up to one second to receive data from the device.
-            received = uart.read(timeout_sec=1)
+            received = uart.read(timeout_sec=0.1)
             if received is not None:
                 for byte in received:
                     parse_packet(byte)

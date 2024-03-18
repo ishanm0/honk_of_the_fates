@@ -36,8 +36,8 @@ extern void map2color(int *red, int *green, int *blue, int degree);
 #define CONN_ID 0x8
 
 #define BUTTON_DEBOUNCE 500        // ms for button debounce
-#define RESENDS_CHECK_TIMEOUT 10   // ms between checks for whether messages need to be resent
-#define RESEND_TIMEOUT 5000         // ms for resending messages
+#define RESENDS_CHECK_TIMEOUT 30   // ms between checks for whether messages need to be resent
+#define RESEND_TIMEOUT 5000        // ms for resending messages
 #define SHOT_PAIRING_TIMEDELTA 500 // ms for shot pairings (max time diff between one player's shot & another's receive)
 #define RPS_TIMEOUT 1000           // ms for RPS pairings (max time diff between shots between two players)
 
@@ -105,6 +105,8 @@ int main(void)
     uint8_t ackID = 0;
     int lastButtonTime = 0;
 
+    int shotThisRound = FALSE;
+
     while (TRUE)
     {
         uint8_t buttons = ~buttons_state() & 0xF; // read the buttons and invert the bits
@@ -130,6 +132,10 @@ int main(void)
             ackID = BT_buffer[1];          // save the message ID being acked in case we need it
             sentMessageLengths[ackID] = 0; // clear the length (used to track whether a message needs to be re-sent)
             inputHandled = ACK_ID;         // save the msg type
+            // if (sentMessageGarage[ackID][0] == PP_SENT_ID)
+            // {
+            //     shotThisRound = FALSE;
+            // }
             printf("rcved ack %x\n", ackID);
         }
 
@@ -155,6 +161,9 @@ int main(void)
             PWM_SetDutyCycle(PWM_4, (red * 100) / 255);
             PWM_SetDutyCycle(PWM_0, (green * 100) / 255);
             PWM_SetDutyCycle(PWM_2, (blue * 100) / 255);
+            setDefaultRGB(255 - red, 255 - green, 255 - blue); // set the RGB values for the neopixel
+            defaultAllLEDs();                                  // set the neopixel to the default RGB values
+
             // choose color
             if (buttons & (BUTTON_2 | BUTTON_3 | BUTTON_4))
             {
@@ -235,6 +244,7 @@ int main(void)
             break;
 
         case STATE_START:
+            shotThisRound = FALSE;
             // service button input
             if ((buttons & BUTTON_2) && (TIMERS_GetMilliSeconds() - lastButtonTime > BUTTON_DEBOUNCE))
             {
@@ -252,6 +262,7 @@ int main(void)
                 activeID = (activeID + 1) % 256; // update the active ID for next transmit
                 spellPulse(UNSPECIFIED, TRUE);
                 sendIRflag = TRUE; // set flag so it sends IR
+                shotThisRound = TRUE;
             }
             else if ((buttons & BUTTON_3) && (TIMERS_GetMilliSeconds() - lastButtonTime > BUTTON_DEBOUNCE))
             {
@@ -269,6 +280,7 @@ int main(void)
                 activeID = (activeID + 1) % 256; // update the active ID for next transmit
                 spellPulse(UNSPECIFIED, TRUE);
                 sendIRflag = TRUE; // set flag so it sends IR
+                shotThisRound = TRUE;
             }
             else if ((buttons & BUTTON_4) && (TIMERS_GetMilliSeconds() - lastButtonTime > BUTTON_DEBOUNCE))
             {
@@ -284,8 +296,10 @@ int main(void)
                 sentMessageTimes[activeID] = TIMERS_GetMilliSeconds();
 
                 activeID = (activeID + 1) % 256; // update the active ID for next transmit
+                printf("id: %x\n", activeID);
                 spellPulse(UNSPECIFIED, TRUE);
                 sendIRflag = TRUE; // set flag so it sends IR
+                shotThisRound = TRUE;
             }
             else
             {
@@ -340,16 +354,21 @@ int main(void)
         } // state machine end
 
         // send any messages that need to be resent
-        if (TIMERS_GetMilliSeconds() - lastResend > RESENDS_CHECK_TIMEOUT) // If it has been more than RESENDS_CHECK_TIMEOUT since last garage maintinence
+        if (shotThisRound || TIMERS_GetMilliSeconds() - lastResend > RESENDS_CHECK_TIMEOUT) // If it has been more than RESENDS_CHECK_TIMEOUT since last garage maintinence
         {
-            lastResend = TIMERS_GetMilliSeconds();                                                                 // record maintenance time
-            for (int i = 0; i < 256; i++)                                                                          // loop through all garage spaces
-            {                                                                                                      //
-                if (sentMessageLengths[i] != 0 && TIMERS_GetMilliSeconds() - sentMessageTimes[i] > RESEND_TIMEOUT) // if there is an active message and it was sent too long ago
-                {                                                                                                  //
-                    BT_Send(sentMessageGarage[i], sentMessageLengths[i]);                                          // resend the active message
+            lastResend = TIMERS_GetMilliSeconds();                          // record maintenance time
+            for (int i = 0; i < 256; i++)                                   // loop through all garage spaces
+            {                                                               //
+                if (shotThisRound && sentMessageGarage[i][0] == PP_SENT_ID) // if a shot was sent this round
+                {                                                           //
+                    sentMessageLengths[i] = 0;                              // clear the length of the message
+                    printf("clearing msg %x\n", sentMessageGarage[i][1]);
+                }
+                else if (sentMessageLengths[i] != 0 && TIMERS_GetMilliSeconds() - sentMessageTimes[i] > RESEND_TIMEOUT) // if there is an active message and it was sent too long ago
+                {                                                                                                       //
+                    BT_Send(sentMessageGarage[i], sentMessageLengths[i]);                                               // resend the active message
                     printf("resending msg %x\n", sentMessageGarage[i][1]);
-                    sentMessageTimes[i] = TIMERS_GetMilliSeconds();                                                // update it's recorded send time.
+                    sentMessageTimes[i] = TIMERS_GetMilliSeconds(); // update it's recorded send time.
                 }
             }
         }

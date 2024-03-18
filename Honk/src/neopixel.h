@@ -1,11 +1,11 @@
 /*
-* File: neopixel.h
-* Author: Eliot Wachtel, Kevin Jiang
-*
-* Library for the WS2812B RGB LED
-*
-* Created on 03/07/2024
-*/
+ * File: neopixel.h
+ * Author: Eliot Wachtel, Kevin Jiang
+ *
+ * Library for the WS2812B RGB LED
+ *
+ * Created on 03/07/2024
+ */
 
 #ifndef NEOPIXEL_H
 #define NEOPIXEL_H
@@ -22,7 +22,7 @@ typedef enum
  * @Function WS2812_SPI_Init
  * @brief Initializes the SPI peripheral for the WS2812B
  * @return None
-*/
+ */
 void WS2812_SPI_Init(void);
 
 /**
@@ -31,7 +31,7 @@ void WS2812_SPI_Init(void);
  * @param data: pointer to the RGB data
  * @param length: length of the data
  * @return None
-*/
+ */
 void spellPulse(spell used_spell, int start);
 
 /**
@@ -41,7 +41,7 @@ void spellPulse(spell used_spell, int start);
  * @param GREEN: green value
  * @param BLUE: blue value
  * @return None
-*/
+ */
 void setDefaultRGB(int RED, int GREEN, int BLUE);
 
 /**
@@ -51,7 +51,10 @@ void setDefaultRGB(int RED, int GREEN, int BLUE);
  * @param GREEN: pointer to green value
  * @param BLUE: pointer to blue value
  * @return None
-*/
+ */
 void getDefaultRGB(int *RED, int *GREEN, int *BLUE);
+
+void setAllLEDs(int RED, int GREEN, int BLUE);
+void defaultAllLEDs();
 
 #endif /* NEOPIXEL_H */
