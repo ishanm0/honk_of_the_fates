@@ -75,6 +75,7 @@ int initFunc(void) // initializes everything we need
     TIMER_Init();      // Timer initialization
     BT_Init();         // Bluetooth initialization
     WS2812_SPI_Init(); // RGB library initialization
+    IR_Init();         // IR initialization
 
     // IR transmission setup
     PWM_SetDutyCycle(PWM_5, 50); // seems like a reasonable place to put it
@@ -145,7 +146,7 @@ int main(void)
             break;
 
         case STATE_CHOOSE_COLOR:
-            map2color(&red, &green, &blue, QEI_GetPosition());          // map rotary count to RGB values
+            map2color(&red, &green, &blue, QEI_GetPosition()); // map rotary count to RGB values
             // printf("Red: %d, Green: %d, Blue: %d\n", red, green, blue); // print the RGB values (for debugging purposes
             //  set the duty cycle of the PWM to the RGB values
 
@@ -304,11 +305,12 @@ int main(void)
             // service IR reception
             if (IR_Detect() == TRUE)
             {
-                printf("ir detected\n");
+                // printf("ir detected\n");
                 flag = TRUE;
             }
             if ((IR_timecheck() + 300 < TIMERS_GetMilliSeconds()) && (flag == TRUE))
             {
+                printf("ir detected\n");
                 if (!(abs(IR_Count() - playerID * 3) <= 1))
                 {
                     modulo = IR_Count() % 3;

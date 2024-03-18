@@ -125,7 +125,7 @@ def main():
     colors = ["" for _ in range(device_count)]
 
     bt.init(device_count)
-    bt.debug_modes(False, True, True)
+    bt.debug_modes(False, False, True)
 
     for i in range(device_count):
         print(f"Waiting for device {i} to connect...")
@@ -136,7 +136,7 @@ def main():
         queue = bt.recv()
         for i in range(device_count):
             for data in queue[i]:
-                print('data', data)
+                print("data", data)
                 # if the message is an ACK
                 if data[0] == ACK_str:
                     # remove the message from the waiting_to_recv_ack list
@@ -158,7 +158,7 @@ def main():
                         waiting_to_recv_ack[i][j][3],  # msg_str
                         waiting_to_recv_ack[i][j][0],  # msg_id
                     )
-    
+
     print("All devices connected!")
 
     # TODO: get color from each device & send back ACKs
@@ -232,10 +232,10 @@ def main():
                             print(
                                 f"Invalid player ID: {data[3].encode('utf-8')} received from player {i}!"
                             )
-                            continue
-                        shot_recv_queue[i].append(
-                            (recv_time, ids.index(data[3].encode("utf-8")))
-                        )  # (time_sent, sending player's ID)
+                        else:
+                            shot_recv_queue[i].append(
+                                (recv_time, ids.index(data[3].encode("utf-8")))
+                            )  # (time_sent, sending player's ID)
 
                     send_ack(i, data[1])
                 elif data[0] == Color_str:

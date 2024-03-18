@@ -29,6 +29,7 @@ void EXTI2_IRQHandler(void)
     if (__HAL_GPIO_EXTI_GET_IT(GPIO_PIN_2) != RESET) //change this too
     {
         __HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_2); // clear interrupt flag
+        // printf("IR sensor triggered\n");
         tmp = TIMERS_GetMilliSeconds(); // get the current time
         if (tmp >= time + 300) // if the time difference is greater than 300ms
         {
