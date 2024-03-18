@@ -45,6 +45,7 @@ Connection_str = b"\x08".decode("utf-8")
 
 already_sent_ack = set()
 waiting_to_recv_ack = None
+next_msg_id = 0
 
 
 def send_ack(player_id: int, msg_id: str):
@@ -61,28 +62,33 @@ def recv_ack(player_id: int, msg_id: str):
             return
 
 
-def send(id: int, msg_type: str, msg_str: str):
+def send(id: int, msg_type: str, msg_str: str, existing_id: str = None):
     global waiting_to_recv_ack, next_msg_id
-    # set the ID message as waiting for an ACK
-    waiting_to_recv_ack[id].append(
-        [
-            int.to_bytes(next_msg_id, 1, "big").decode("utf-8"),  # msg_id
-            time.time(),  # time_sent
-            msg_type,  # msg_type
-            msg_str,  # msg_str
-        ]
-    )
-
-    # send the ID message
-    bt.send(
-        id,  # player_id
-        waiting_to_recv_ack[-1][2]  # msg_type
-        + waiting_to_recv_ack[-1][0]  # msg_id
-        + waiting_to_recv_ack[-1][3],  # msg_str
-    )
-
-    # increment the next_msg_id
-    next_msg_id = (next_msg_id + 1) % 256
+    if existing_id is None:
+        # set the ID message as waiting for an ACK
+        waiting_to_recv_ack[id].append(
+            [
+                int.to_bytes(next_msg_id, 1, "big").decode("utf-8"),  # msg_id
+                time.time(),  # time_sent
+                msg_type,  # msg_type
+                msg_str,  # msg_str
+            ]
+        )
+        # increment the next_msg_id
+        next_msg_id = (next_msg_id + 1) % 256
+        # send the ID message
+        bt.send(
+            id,  # player_id
+            waiting_to_recv_ack[id][-1][2]  # msg_type
+            + waiting_to_recv_ack[id][-1][0]  # msg_id
+            + waiting_to_recv_ack[id][-1][3],  # msg_str
+        )
+    else:
+        bt.send(
+            id,  # player_id
+            msg_type + existing_id + msg_str,
+        )
+        return
 
 
 def main():
@@ -93,23 +99,59 @@ def main():
     print("Enter the number of expected players/Bluetooth devices:")
     device_count = int(input())
 
-    next_msg_id = 0
-
-    # each player's pending_acks list will contain a list like this: [msg_id, time_sent, msg_type, msg_str]
+    # each player's waiting_to_recv_ack list will contain a list like this: [msg_id, time_sent, msg_type, msg_str]
     waiting_to_recv_ack = [list() for _ in range(device_count)]
     shot_sent_queue = [list() for _ in range(device_count)]
-    # shot_sent_queue = list()
     shot_recv_queue = [list() for _ in range(device_count)]
-    # shot_recv_queue = list()
 
     shot_pairings = list()
     points = {i: 0 for i in range(device_count)}
 
+    colors = ["" for _ in range(device_count)]
+
     bt.init(device_count)
     bt.debug_modes(True, True, True)
 
-    # TODO: before assigning IDs, send connection confirmation & get ACKs
+    for i in range(device_count):
+        send(i, Connection_str, "")
+
+    while any([len(waiting_to_recv_ack[i]) > 0 for i in range(device_count)]):
+        # check for any new messages
+        queue = bt.recv()
+        for i in range(device_count):
+            for data in queue[i]:
+                # if the message is an ACK
+                if data[0] == ACK_str:
+                    # remove the message from the waiting_to_recv_ack list
+                    recv_ack(i, data[1])
+                elif data[0] == Color_str:
+                    if colors[i] == "":
+                        colors[i] = data[2:]
+                        print(f"Device {i} has color: {colors[i]}")
+                    send_ack(i, data[1])
+
+        # send any messages that need to be resent
+        for i in range(device_count):
+            for j in range(len(waiting_to_recv_ack[i])):
+                if time.time() - waiting_to_recv_ack[i][j][1] > 1:
+                    waiting_to_recv_ack[i][j][1] = time.time()
+                    send(
+                        i,
+                        waiting_to_recv_ack[i][j][2],  # msg_type
+                        waiting_to_recv_ack[i][j][3],  # msg_str
+                        waiting_to_recv_ack[i][j][0],  # msg_id
+                    )
+
     # TODO: get color from each device & send back ACKs
+    while any([colors[i] == "" for i in range(device_count)]):
+        # check for any new messages
+        queue = bt.recv()
+        for i in range(device_count):
+            for data in queue[i]:
+                if data[0] == Color_str and colors[i] == "":
+                    colors[i] = data[2:]
+                    print(f"Device {i} has color: {colors[i]}")
+                send_ack(i, data[1])
 
     # assign IDs
     ids = []
@@ -122,23 +164,7 @@ def main():
         # ids[device_index] = player_id
         ids.append(tmp_id)
 
-        # waiting_to_recv_ack[i].append(
-        #     [
-        #         int.to_bytes(next_msg_id, 1, "big").decode("utf-8"),  # msg_id
-        #         time.time(),  # time_sent
-        #         AssignID_str,  # msg_type
-        #         int.to_bytes(ids[i], 1, "big").decode("utf-8"),  # msg_str
-        #     ]
-        # )
-
-        # bt.send(
-        #     i,
-        #     waiting_to_recv_ack[i][-1][2]  # msg_type
-        #     + waiting_to_recv_ack[i][-1][0]  # msg_id
-        #     + waiting_to_recv_ack[i][-1][3],  # msg_str
-        # )
-
-        # next_msg_id = (next_msg_id + 1) % 256
+        # send the ID message
         send(i, AssignID_str, int.to_bytes(ids[i], 1, "big").decode("utf-8"))
 
         print(f"Device {i} has ID: {ids[i]}")
@@ -151,8 +177,20 @@ def main():
             for data in queue[i]:
                 # if the message is an ACK
                 if data[0] == ACK_str:
-                    # remove the message from the pending_acks list
+                    # remove the message from the waiting_to_recv_ack list
                     recv_ack(i, data[1])
+
+        # send any messages that need to be resent
+        for i in range(device_count):
+            for j in range(len(waiting_to_recv_ack[i])):
+                if time.time() - waiting_to_recv_ack[i][j][1] > 1:
+                    waiting_to_recv_ack[i][j][1] = time.time()
+                    send(
+                        i,
+                        waiting_to_recv_ack[i][j][2],  # msg_type
+                        waiting_to_recv_ack[i][j][3],  # msg_str
+                        waiting_to_recv_ack[i][j][0],  # msg_id
+                    )
 
     while True:
         # check for any new messages
@@ -282,19 +320,22 @@ def main():
             if i not in handled_pairings
         ]
 
-        # TODO: send win/loss messages
+        for w in wins:
+            send(w, Win_str, int.to_bytes(w, 1, "big").decode("utf-8"))
+        for l in losses:
+            send(l, Loss_str, int.to_bytes(l, 1, "big").decode("utf-8"))
 
         # send any messages that need to be resent
         for i in range(device_count):
             for j in range(len(waiting_to_recv_ack[i])):
                 if time.time() - waiting_to_recv_ack[i][j][1] > 1:
-                    bt.send(
-                        i,
-                        waiting_to_recv_ack[i][j][2]  # msg_type
-                        + waiting_to_recv_ack[i][j][0]  # msg_id
-                        + waiting_to_recv_ack[i][j][3],  # msg_str
-                    )
                     waiting_to_recv_ack[i][j][1] = time.time()
+                    send(
+                        i,
+                        waiting_to_recv_ack[i][j][2],  # msg_type
+                        waiting_to_recv_ack[i][j][3],  # msg_str
+                        waiting_to_recv_ack[i][j][0],  # msg_id
+                    )
 
 
 if __name__ == "__main__":

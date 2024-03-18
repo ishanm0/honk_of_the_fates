@@ -52,6 +52,7 @@ int send_packet(uint8_t id, uint8_t length, uint8_t *data);
 
 int BT_Init()
 {
+    TIMER_Init();
     Uart1_Init(9600);
     buffer = (buffer_t)malloc(sizeof(struct buffer_struct));
     buffer->head = 0;
@@ -71,6 +72,12 @@ int BT_Init()
 
 int BT_Recv(uint8_t *data)
 {
+    if ((TIMERS_GetMilliSeconds() - last_recv_time) >= RECV_TIMEOUT && Uart1_rx(rx_buffer, DATA_SIZE) == SUCCESS)
+    {
+        new_data = 1;
+        last_recv_time = TIMERS_GetMilliSeconds();
+    }
+
     if (new_data)
     {
         new_data = 0;
@@ -109,12 +116,6 @@ int BT_Recv(uint8_t *data)
             }
         }
         memset(rx_buffer, 0, DATA_SIZE);
-    }
-
-    if ((TIMERS_GetMilliSeconds() - last_recv_time) >= RECV_TIMEOUT && Uart1_rx(rx_buffer, DATA_SIZE) == SUCCESS)
-    {
-        new_data = 1;
-        last_recv_time = TIMERS_GetMilliSeconds();
     }
 
     if (!buffer->empty)
@@ -266,7 +267,6 @@ int send_packet(uint8_t id, uint8_t length, uint8_t *data)
 int main(void)
 {
     BOARD_Init();
-    TIMER_Init();
     BT_Init();
     printf("init done\n");
 
