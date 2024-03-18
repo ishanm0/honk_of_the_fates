@@ -3,6 +3,10 @@ import time
 
 import stm_bluefruit as bt
 
+RESEND_TIMEOUT = 0.5  # seconds for resending messages
+SHOT_PAIRING_TIMEDELTA = 0.5  # seconds for shot pairings (max time diff between one player's shot & another's receive)
+RPS_TIMEOUT = 1  # seconds for RPS pairings (max time diff between shots between two players)
+
 ACK_str = b"\x01".decode("utf-8")
 # ACK (rest of message will be identical to the original message being ACKed - the second char will be the original message’s first char)
 # 0x01 [msg id, 1 char] (2 bytes)
@@ -93,6 +97,7 @@ def send(id: int, msg_type: str, msg_str: str, existing_id: str = None):
 
 def main():
     global already_sent_ack, waiting_to_recv_ack
+    global RESEND_TIMEOUT, SHOT_PAIRING_TIMEDELTA, RPS_TIMEOUT
     print("Starting main_interface.py")
     print("Press Ctrl+C to exit")
     print("")
@@ -133,7 +138,7 @@ def main():
         # send any messages that need to be resent
         for i in range(device_count):
             for j in range(len(waiting_to_recv_ack[i])):
-                if time.time() - waiting_to_recv_ack[i][j][1] > 1:
+                if time.time() - waiting_to_recv_ack[i][j][1] > RESEND_TIMEOUT:
                     waiting_to_recv_ack[i][j][1] = time.time()
                     send(
                         i,
@@ -183,7 +188,7 @@ def main():
         # send any messages that need to be resent
         for i in range(device_count):
             for j in range(len(waiting_to_recv_ack[i])):
-                if time.time() - waiting_to_recv_ack[i][j][1] > 1:
+                if time.time() - waiting_to_recv_ack[i][j][1] > RESEND_TIMEOUT:
                     waiting_to_recv_ack[i][j][1] = time.time()
                     send(
                         i,
@@ -234,7 +239,7 @@ def main():
                         continue
                     sent_shot = shot_sent_queue[recv_shot[1]][k]  # (time_sent, btn #)
                     # if the time difference is less than 0.5 seconds
-                    if abs(recv_shot[0] - sent_shot[0]) < 0.5:
+                    if abs(recv_shot[0] - sent_shot[0]) < SHOT_PAIRING_TIMEDELTA:
                         # (receiving player's ID, sending player's ID, btn #)
                         shot_pairings.append(
                             (
@@ -267,7 +272,7 @@ def main():
                     and shot_pairings[i][1] == shot_pairings[j][2]
                     and shot_pairings[i][2] == shot_pairings[j][1]
                     # times are close enough
-                    and abs(shot_pairings[i][0] - shot_pairings[j][0]) < 0.5
+                    and abs(shot_pairings[i][0] - shot_pairings[j][0]) < RPS_TIMEOUT
                 ):
                     if shot_pairings[i][3] == shot_pairings[j][3]:
                         rand_win = random.choice([1, 2])
@@ -303,7 +308,7 @@ def main():
                     handled_pairings.add(j)
 
         for i in range(len(shot_pairings)):
-            if i not in handled_pairings and shot_pairings[i][0] < time.time() - 1:
+            if i not in handled_pairings and time.time() - shot_pairings[i][0] < RPS_TIMEOUT:
                 print(
                     f"Player {shot_pairings[i][2]} beat Player {shot_pairings[i][1]}!"
                 )
@@ -328,7 +333,7 @@ def main():
         # send any messages that need to be resent
         for i in range(device_count):
             for j in range(len(waiting_to_recv_ack[i])):
-                if time.time() - waiting_to_recv_ack[i][j][1] > 1:
+                if time.time() - waiting_to_recv_ack[i][j][1] > RESEND_TIMEOUT:
                     waiting_to_recv_ack[i][j][1] = time.time()
                     send(
                         i,
