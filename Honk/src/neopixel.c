@@ -154,6 +154,7 @@ void spellPulse(spell used_spell, int start)
     if (runningPulse && tempTime > (lastUpdate + 10))
     {
         // start new pulse
+        // printf("Yes1: %lu : %lu\n", tempTime, lastUpdate);
         if (pulse_propagation >= NUM_LED)
         {
             runningPulse = FALSE;

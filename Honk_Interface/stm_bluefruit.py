@@ -152,12 +152,13 @@ def init(count: int = 0) -> int:
                 raise RuntimeError("Failed to find any UART devices!")
         else:
             start_time = time.time()
-            while len(known) < count and time.time() - start_time < 60:
+            while len(known) < count and time.time() - start_time < 10:
                 found = set(UART.find_devices())
                 new = found - known
                 for device in new:
                     print(f"Found UART {len(known)}: {device.name} [{device.id}]")
                     known.add(device)
+                time.sleep(1.0)
             if len(known) < count:
                 raise RuntimeError(f"Failed to find {count} UART devices!")
         devices = list(known)
@@ -267,7 +268,7 @@ if __name__ == "__main__":
         alphabet = "abcdefghijklmnopqrstuvwxyz"
 
         device_count = init()
-        # debug_modes(True, True, True)
+        debug_modes(True, True, True)
 
         alphabet_idx = [0 for _ in range(device_count)]
         packet_times = [list() for _ in range(device_count)]
