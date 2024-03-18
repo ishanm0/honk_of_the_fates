@@ -48,7 +48,6 @@ int sentMessageLengths[256];               // save length of message in position
 uint8_t sentMessageGarage[256][DATA_SIZE]; // save message in position i
 uint32_t sentMessageTimes[256];
 uint8_t alreadyAcked[256];
-// i = (i + 1) % 256; // increment the message id
 uint8_t activeID = 0; // ID to be assigned to the next sent message (cycles from 0->255)
 
 uint8_t sendIRflag = FALSE; // flag controlling whether IR transmission is called in the main loop during game
@@ -90,13 +89,10 @@ int main(void)
     int red = 0;
     int green = 0;
     int blue = 0;
-    // int color_select = FALSE; // <---- what is this for exactly? ???????
     char color[20];
 
     uint8_t BT_buffer[256];
     int chars_read = 0;
-    // int colorChosen = FALSE;
-    // int activeID = (activeID + 1) % 256; // increment the message id
     int inputHandled = 0;
     uint8_t colorMsgID = 0;
     uint8_t ackID = 0;
@@ -129,12 +125,8 @@ int main(void)
         {
         case STATE_CON_WAIT:
             // wait for connection confirmation from uart initialization
-            // if (BT_buffer[0] == CONN_ID)
-            if (inputHandled)
+            if (inputHandled == CONN_ID)
             {
-                // BT_buffer[0] = ACK_ID;
-                // BT_Send(BT_buffer, 2);
-
                 state = STATE_CHOOSE_COLOR; // change the state to STATE_CHOOSE_COLOR
             }
             break;
@@ -193,43 +185,23 @@ int main(void)
                 {
                     sentMessageGarage[activeID][i + 2] = color[i];
                 }
-                // strcpy(sentMessageGarage[activeID][2], color);
                 BT_Send(sentMessageGarage[activeID], 2 + strlen(color));
                 sentMessageLengths[activeID] = 2 + strlen(color);
                 sentMessageTimes[activeID] = TIMERS_GetMilliSeconds();
                 colorMsgID = activeID;
                 activeID = (activeID + 1) % 256;
 
-                state = STATE_COLOR_ACK; // change the state to STATE_WAIT_ASSIGN
+                state = STATE_COLOR_ACK; // change the state to STATE_COLOR_ACK
             }
             break;
 
         case STATE_COLOR_ACK:
             // wait for ack of color message from stm32
 
-            /* if (BT_buffer[0] == CONN_ID)
-            {
-                BT_buffer[0] = ACK_ID;
-                BT_Send(BT_buffer, 2); // send ack to laptop
-                activeID = (activeID + 1) % 256;
-            }
-            else  */
             if (inputHandled == ACK_ID && ackID == colorMsgID)
             {
-                state = STATE_WAIT_ASSIGN; // change the state to STATE_START
+                state = STATE_WAIT_ASSIGN; // change the state to STATE_WAIT_ASSIGN
             }
-            // else
-            // {
-            //     HAL_Delay(10000); // :)
-            //     // BT_buffer[0] = COLOR_ID;
-            //     // BT_buffer[1] = color;
-            //     // BT_Send(BT_buffer, 2 + strlen(color));
-            //     // activeID = (activeID + 1) % 256;
-            //     // if (BT_buffer[0] == ACK_ID)
-            //     // {
-            //     //     state = STATE_WAIT_ASSIGN; // change the state to STATE_START
-            //     // }
-            // }
             break;
 
         case STATE_WAIT_ASSIGN:
@@ -245,45 +217,48 @@ int main(void)
             break;
 
         case STATE_START:
-
-            // shouldn't need to handle this, the assign id message has already been handled & acked so it should be caught by the "if alreadyAcked[BT_Buffer[1]]" check before the switch/case
-            // if (!inputHandled && BT_buffer[0] == ASSIGN_ID) // if the BT_buffer item is an ID assignment
-            // {                                               //
-            //     BT_buffer[0] = ACK_ID;                      // store the id
-            //     BT_Send(BT_buffer, 2);                      // send ack to laptop
-            //     activeID = (activeID + 1) % 256;            // update the active ID for next transmit
-            // }
-
             // service button input
             if (buttons & BUTTON_2)
             {
-                BT_buffer[0] = PP_SENT_ID;
-                BT_buffer[1] = playerID;
-                BT_buffer[2] = 2;
-                BT_Send(BT_buffer, 4);
-                // if no ack back don't move on ?????????????????????
+                sentMessageGarage[activeID][0] = PP_SENT_ID;
+                sentMessageGarage[activeID][1] = activeID;
+                sentMessageGarage[activeID][2] = playerID;
+                sentMessageGarage[activeID][3] = 2;
+                BT_Send(sentMessageGarage[activeID], 4);
+
+                sentMessageLengths[activeID] = 4;
+                sentMessageTimes[activeID] = TIMERS_GetMilliSeconds();
+
                 activeID = (activeID + 1) % 256; // update the active ID for next transmit
                 spellPulse(UNSPECIFIED, TRUE);
                 sendIRflag = TRUE; // set flag so it sends IR
             }
             else if (buttons & BUTTON_3)
             {
-                BT_buffer[0] = PP_SENT_ID;
-                BT_buffer[1] = playerID;
-                BT_buffer[2] = 3;
-                BT_Send(BT_buffer, 4);
-                // if no ack back don't move on ?????????????????????
+                sentMessageGarage[activeID][0] = PP_SENT_ID;
+                sentMessageGarage[activeID][1] = activeID;
+                sentMessageGarage[activeID][2] = playerID;
+                sentMessageGarage[activeID][3] = 3;
+                BT_Send(sentMessageGarage[activeID], 4);
+
+                sentMessageLengths[activeID] = 4;
+                sentMessageTimes[activeID] = TIMERS_GetMilliSeconds();
+
                 activeID = (activeID + 1) % 256; // update the active ID for next transmit
                 spellPulse(UNSPECIFIED, TRUE);
                 sendIRflag = TRUE; // set flag so it sends IR
             }
             else if (buttons & BUTTON_4)
             {
-                BT_buffer[0] = PP_SENT_ID;
-                BT_buffer[1] = playerID;
-                BT_buffer[2] = 4;
-                BT_Send(BT_buffer, 4);
-                // if no ack back don't move on ?????????????????????
+                sentMessageGarage[activeID][0] = PP_SENT_ID;
+                sentMessageGarage[activeID][1] = activeID;
+                sentMessageGarage[activeID][2] = playerID;
+                sentMessageGarage[activeID][3] = 4;
+                BT_Send(sentMessageGarage[activeID], 4);
+
+                sentMessageLengths[activeID] = 4;
+                sentMessageTimes[activeID] = TIMERS_GetMilliSeconds();
+
                 activeID = (activeID + 1) % 256; // update the active ID for next transmit
                 spellPulse(UNSPECIFIED, TRUE);
                 sendIRflag = TRUE; // set flag so it sends IR
@@ -311,30 +286,26 @@ int main(void)
                 if (!(abs(IR_Count() - playerID * 3) <= 1))
                 {
                     modulo = IR_Count() % 3;
-                    BT_buffer[0] = 0x04;
-                    BT_buffer[1] = activeID;
-                    BT_buffer[2] = playerID;
+                    sentMessageGarage[activeID][0] = PP_RECV_ID;
+                    sentMessageGarage[activeID][1] = activeID;
+                    sentMessageGarage[activeID][2] = playerID;
                     if (modulo == 0 || modulo == 1)
                     {
-                        // return opp id IR_Count()/3
-                        BT_buffer[3] = IR_Count() / 3;
+                        sentMessageGarage[activeID][3] = IR_Count() / 3;
                     }
                     else if (modulo == 2)
                     {
-                        BT_buffer[3] = (IR_Count() + 1) / 3;
+                        sentMessageGarage[activeID][3] = (IR_Count() + 1) / 3;
                     }
-                    BT_Send(BT_buffer, 4);
-                    // if no ack back don't move on ?????????????????????
+                    BT_Send(sentMessageGarage[activeID], 4);
+
+                    sentMessageLengths[activeID] = 4;
+                    sentMessageTimes[activeID] = TIMERS_GetMilliSeconds();
+
                     activeID = (activeID + 1) % 256;
                 }
                 flag = FALSE;
             }
-            // check for bluetooth messages !!!!!!!! we need to implement the below:
-            //  For this we need to:
-            //      check for stray player ID assignment messages and re-give acknoledgement
-            //      check for acknoledgement and clear the associated message from the sent message queue
-            //      periodically check queue of sent messages to make sure it is empty
-            //          if some not cleared then resend themc
 
             break;
         } // state machine end
@@ -342,7 +313,7 @@ int main(void)
         // send any messages that need to be resent
         if (TIMERS_GetMilliSeconds() - lastResend > RESENDS_CHECK_TIMEOUT) // If it has been more than RESENDS_CHECK_TIMEOUT since last garage maintinence
         {
-            lastResend = TIMERS_GetMilliSeconds();                                                                 // record maintininence time
+            lastResend = TIMERS_GetMilliSeconds();                                                                 // record maintenance time
             for (int i = 0; i < 256; i++)                                                                          // loop through all garage spaces
             {                                                                                                      //
                 if (sentMessageLengths[i] != 0 && TIMERS_GetMilliSeconds() - sentMessageTimes[i] > RESEND_TIMEOUT) // if there is an active message and it was sent too long ago
@@ -352,37 +323,5 @@ int main(void)
                 }
             }
         }
-        /* if time.time() - waiting_to_recv_ack[i][j][1] > 1:
-            waiting_to_recv_ack[i][j][1] = time.time()
-            send(
-                i,
-                waiting_to_recv_ack[i][j][2],  // msg_type
-                waiting_to_recv_ack[i][j][3],  // msg_str
-                waiting_to_recv_ack[i][j][0],  // msg_id
-            ) */
     }
 }
-
-// // start the process
-//                 // if IR receiver counts x amount of pulses
-//                 if ((IR_Count() != playerID * 3) && (TIMERS_GetMicroSeconds() > 5000))
-//                 { // if the IR receiver counts 10 pulses
-//                     // send hit and time to stm32
-//                     // char time = itoa(TIMERS_GetMicroSeconds(), time, 10); // convert the time to a string
-//                     // char pkt = "hit " + time;                             // send the string "hit" and the time
-//                     // uart_send(pkt);                                       // not a real function, just pseudo code
-
-//                     // NEED TO CREATE AND SEND THE PACKET SHOWING A REGISTERED HIT !!!!!!!!!!!!!!!!!!!
-//                     // 0x04 = shot received
-//                     //     0x04 [msg id, 1 char] [receiving player’s id, 1 char] [sending player’s id, 1 char] (4 bytes)
-//                     //     (STM → laptop)
-//                     BT_sendable_byte[0] = 0x04;
-//                     BT_sendable_byte[0] = 0x04;                   // !!!!!!!! ADD proper message ID
-//                     BT_sendable_byte[2] = playerID;               // [receiving player’s id, 1 char]
-//                     BT_sendable_byte[3] = (char)(IR_Count() / 3); // [sending player’s id, 1 char]
-//                     BT_Send(*BT_sendable_byte, 4);                // Send the 4 char "shot received" message
-//                 }
-//                 else if (strcmp("miss", (char *)BT_buffer) == 0)
-//                 { // if the string is equal to "missed"y
-//                   // state = STATE_PROCESSING; // change the state to STATE_WAIT_ASSIGN
-//                 }

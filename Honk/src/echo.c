@@ -2,7 +2,9 @@
 #include "BT.h"
 #include <stdio.h>
 
-#define Echo_main
+// test file for testing BT module messaging
+
+// #define Echo_main
 
 #ifdef Echo_main
 int main(void)
