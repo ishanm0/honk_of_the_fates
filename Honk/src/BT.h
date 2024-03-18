@@ -36,4 +36,4 @@ int BT_Recv(uint8_t *data); // TODO: take as input the max data to read in (leng
  */
 int BT_Send(uint8_t *data, int length);
 
-#endif
+#endif /* BT_H */
