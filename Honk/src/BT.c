@@ -155,6 +155,7 @@ int BT_Send(uint8_t *data, int len)
 {
     int ret = send_packet(out_packet_id, len, data); // send the packet
     out_packet_id = (out_packet_id + 1) % 256;       // increment the packet id
+    HAL_Delay(1);
     // must increment packet id to avoid duplicate packets
     return ret;
 }

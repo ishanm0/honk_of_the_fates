@@ -37,7 +37,7 @@ extern void map2color(int *red, int *green, int *blue, int degree);
 
 #define BUTTON_DEBOUNCE 500        // ms for button debounce
 #define RESENDS_CHECK_TIMEOUT 10   // ms between checks for whether messages need to be resent
-#define RESEND_TIMEOUT 500         // ms for resending messages
+#define RESEND_TIMEOUT 5000         // ms for resending messages
 #define SHOT_PAIRING_TIMEDELTA 500 // ms for shot pairings (max time diff between one player's shot & another's receive)
 #define RPS_TIMEOUT 1000           // ms for RPS pairings (max time diff between shots between two players)
 
@@ -130,7 +130,7 @@ int main(void)
             ackID = BT_buffer[1];          // save the message ID being acked in case we need it
             sentMessageLengths[ackID] = 0; // clear the length (used to track whether a message needs to be re-sent)
             inputHandled = ACK_ID;         // save the msg type
-            printf("rcved ack\n");
+            printf("rcved ack %x\n", ackID);
         }
 
         // printf("state: %x\n", state);
@@ -310,7 +310,7 @@ int main(void)
             }
             if ((IR_timecheck() + 300 < TIMERS_GetMilliSeconds()) && (flag == TRUE))
             {
-                printf("ir detected\n");
+                printf("ir detected: %x\n", IR_Count());
                 if (!(abs(IR_Count() - playerID * 3) <= 1))
                 {
                     modulo = IR_Count() % 3;
@@ -348,6 +348,7 @@ int main(void)
                 if (sentMessageLengths[i] != 0 && TIMERS_GetMilliSeconds() - sentMessageTimes[i] > RESEND_TIMEOUT) // if there is an active message and it was sent too long ago
                 {                                                                                                  //
                     BT_Send(sentMessageGarage[i], sentMessageLengths[i]);                                          // resend the active message
+                    printf("resending msg %x\n", sentMessageGarage[i][1]);
                     sentMessageTimes[i] = TIMERS_GetMilliSeconds();                                                // update it's recorded send time.
                 }
             }

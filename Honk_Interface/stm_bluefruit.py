@@ -282,7 +282,7 @@ if __name__ == "__main__":
         # Once connected do everything else in a try/finally to make sure the device
         # is disconnected when done.
 
-        for _ in range(100):
+        for _ in range(1000):
             queue = recv()
             for i in range(device_count):
                 transaction[i] = False

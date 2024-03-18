@@ -57,7 +57,7 @@ next_msg_id = 0
 def send_ack(player_id: int, msg_id: str):
     global already_sent_ack
     already_sent_ack.add(msg_id)
-    print(f"Sending ACK for message {msg_id.encode('utf-8')} to player {player_id}")
+    # print(f"Sending ACK for message {msg_id.encode('utf-8')} to player {player_id}")
     bt.send(player_id, ACK_str + msg_id)
 
 
@@ -83,13 +83,13 @@ def send(id: int, msg_type: str, msg_str: str, existing_id: str = None):
         )
         # increment the next_msg_id
         next_msg_id = (next_msg_id + 1) % 256
-        print(
-            (
-                waiting_to_recv_ack[id][-1][2]
-                + waiting_to_recv_ack[id][-1][0]
-                + waiting_to_recv_ack[id][-1][3]
-            ).encode("utf-8")
-        )
+        # print(
+        #     (
+        #         waiting_to_recv_ack[id][-1][2]
+        #         + waiting_to_recv_ack[id][-1][0]
+        #         + waiting_to_recv_ack[id][-1][3]
+        #     ).encode("utf-8")
+        # )
         # send the ID message
         bt.send(
             id,  # player_id
@@ -136,7 +136,7 @@ def main():
         queue = bt.recv()
         for i in range(device_count):
             for data in queue[i]:
-                print("data", data)
+                # print("data", data)
                 # if the message is an ACK
                 if data[0] == ACK_str:
                     # remove the message from the waiting_to_recv_ack list
@@ -224,17 +224,22 @@ def main():
                         shot_sent_queue[i].append(
                             (recv_time, data[3].encode("utf-8"))
                         )  # (time_sent, btn #)
+                        print(f"Player {i} shot button {data[3].encode('utf-8')}!")
 
                     send_ack(i, data[1])
                 elif data[0] == PPRecv_str:
                     if data[1] not in already_sent_ack:
-                        if data[3].encode("utf-8") not in ids:
+                        sender_id = int.from_bytes(data[3].encode("utf-8"), "big")
+                        if sender_id not in ids:
                             print(
-                                f"Invalid player ID: {data[3].encode('utf-8')} received from player {i}!"
+                                f"Invalid player ID: {sender_id} received from player {i}!"
                             )
                         else:
+                            print(
+                                f"Player {i} received a shot from player {ids.index(sender_id)}!"
+                            )
                             shot_recv_queue[i].append(
-                                (recv_time, ids.index(data[3].encode("utf-8")))
+                                (recv_time, ids.index(sender_id))
                             )  # (time_sent, sending player's ID)
 
                     send_ack(i, data[1])
