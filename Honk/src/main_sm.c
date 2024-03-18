@@ -113,13 +113,17 @@ int main(void)
             BT_buffer[0] = ACK_ID;             // set the first byte of the buffer to ACK_ID (ACK)
             alreadyAcked[BT_buffer[1]] = TRUE; // mark the message as having been handled
             BT_Send(BT_buffer, 2);             // send ack to laptop
+            printf("acking %x\n", inputHandled);
         }
         else if (BT_buffer[0] == ACK_ID)
         {                                  // if message is an acknowledge
             ackID = BT_buffer[1];          // save the message ID being acked in case we need it
             sentMessageLengths[ackID] = 0; // clear the length (used to track whether a message needs to be re-sent)
             inputHandled = ACK_ID;         // save the msg type
+            printf("rcved ack\n");
         }
+
+        printf("state: %x\n", state);
 
         switch (state)
         {
@@ -144,6 +148,7 @@ int main(void)
             // choose color
             if (buttons & (BUTTON_2 | BUTTON_3 | BUTTON_4))
             {
+                printf("color button\n");
                 // !!!!!!!!! might break but ez fix bc qei colors is supposed to be 1-100, just print them out and change to actual values
                 {
                     if (red == 255 && green == 10 && blue == 255)
@@ -179,6 +184,7 @@ int main(void)
                         strcpy(color, "white");
                     }
                 }
+                printf("color: %s", color);
                 sentMessageGarage[activeID][0] = COLOR_ID;
                 sentMessageGarage[activeID][1] = activeID;
                 for (int i = 0; i < strlen(color); i++)
@@ -208,6 +214,7 @@ int main(void)
             if (!inputHandled && BT_buffer[0] == ASSIGN_ID)
             {
                 playerID = BT_buffer[2];
+                printf("playerid: %x\n", playerID);
                 BT_buffer[0] = ACK_ID;
                 alreadyAcked[BT_buffer[1]] = TRUE;
                 BT_Send(BT_buffer, 2); // send ack to laptop
@@ -220,6 +227,7 @@ int main(void)
             // service button input
             if (buttons & BUTTON_2)
             {
+                printf("button 2\n");
                 sentMessageGarage[activeID][0] = PP_SENT_ID;
                 sentMessageGarage[activeID][1] = activeID;
                 sentMessageGarage[activeID][2] = playerID;
@@ -235,6 +243,7 @@ int main(void)
             }
             else if (buttons & BUTTON_3)
             {
+                printf("button 3\n");
                 sentMessageGarage[activeID][0] = PP_SENT_ID;
                 sentMessageGarage[activeID][1] = activeID;
                 sentMessageGarage[activeID][2] = playerID;
@@ -250,6 +259,7 @@ int main(void)
             }
             else if (buttons & BUTTON_4)
             {
+                printf("button 4\n");
                 sentMessageGarage[activeID][0] = PP_SENT_ID;
                 sentMessageGarage[activeID][1] = activeID;
                 sentMessageGarage[activeID][2] = playerID;
@@ -272,7 +282,10 @@ int main(void)
             if (sendIRflag == TRUE)
             {                                       // send IR if needed
                 if (sendIRsignal(playerID) == TRUE) // run service and check if done sending
+                {                                   //
                     sendIRflag = FALSE;             // reset the flag if done sending
+                    printf("ir done\n");
+                }
             }
 
             // service IR reception
@@ -297,6 +310,7 @@ int main(void)
                     {
                         sentMessageGarage[activeID][3] = (IR_Count() + 1) / 3;
                     }
+                    printf("ir in: %x\n", sentMessageGarage[activeID][3]);
                     BT_Send(sentMessageGarage[activeID], 4);
 
                     sentMessageLengths[activeID] = 4;

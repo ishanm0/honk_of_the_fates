@@ -102,8 +102,9 @@ int BT_Recv(uint8_t *data)
             // parse the packet
             {
                 packet_parser(tmp_packet, rx_buffer[(start + i) % DATA_SIZE]);
-                if (packet_ready && (tmp_packet->id > in_packet_id || tmp_packet->id == 0))
                 // if the packet is ready and the packet id is greater than the current packet id
+                // note that we are not checking for the buffer being full, so if the buffer overflows it will overwrite the oldest packet
+                if (packet_ready && (tmp_packet->id > in_packet_id || tmp_packet->id == 0))
                 {
                     packet_ready = 0;
                     in_packet_id = tmp_packet->id;                             // set the current packet id to the packet id
