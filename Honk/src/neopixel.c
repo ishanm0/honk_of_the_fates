@@ -169,7 +169,7 @@ void spellPulse(spell used_spell, int start)
     // If currently running an animation and ready to do the next frame:
     if (runningPulse && tempTime > (lastUpdate + 10))
     {
-        printf("Yes1: %lu : %lu\n", tempTime, lastUpdate);
+        // printf("Yes1: %lu : %lu\n", tempTime, lastUpdate);
         if (pulse_propagation >= NUM_LED)
         {
             runningPulse = FALSE;

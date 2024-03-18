@@ -89,8 +89,8 @@ int ON_TIME = 50; // microseconds to have pwm signal on
 int OFF_TIME = 100; // microseconds to have pwm signal off between sucessive on pules
 int MIN_WAIT_BETWEEN_PULSES = 500; // minimum microseconds between unique complete signals
 
-uint32_t lastUpdate = 0;
-uint32_t tempTime = 0;
+uint32_t lastIRUpdate = 0;
+uint32_t tempIRTime = 0;
 uint32_t currDelay = 0;
 // uint32_t TIMERS_GetMilliSeconds(void);
 
@@ -103,12 +103,12 @@ int sendIRsignal(int playerID){
     if(playerID == 0) return 0; // if input is 0, do not do anything
     
     // check current time
-    tempTime = TIMERS_GetMilliSeconds();
+    tempIRTime = TIMERS_GetMilliSeconds();
     // ...
     
-    if (runningIRpulses && tempTime >= (lastUpdate + currDelay))
+    if (runningIRpulses && tempIRTime >= (lastIRUpdate + currDelay))
     {
-        // printf("Yes1: %d : %d\n", tempTime, lastUpdate);
+        // printf("Yes1: %d : %d\n", tempIRTime, lastIRUpdate);
         if (signal_propegation >= (playerID * 3))
         {
             runningIRpulses = FALSE;
@@ -129,14 +129,14 @@ int sendIRsignal(int playerID){
             currDelay = ON_TIME;
         }
         // update last update time store
-        lastUpdate = TIMERS_GetMilliSeconds();
-    } else if (!runningIRpulses && tempTime > (lastUpdate + MIN_WAIT_BETWEEN_PULSES)){
+        lastIRUpdate = TIMERS_GetMilliSeconds();
+    } else if (!runningIRpulses && tempIRTime > (lastIRUpdate + MIN_WAIT_BETWEEN_PULSES)){
         // start a new pulse
         runningIRpulses = TRUE;
         PWM_Start(PWM_5);
         currDelay = ON_TIME;
         signal_propegation = 0;
-        lastUpdate = TIMERS_GetMilliSeconds();
+        lastIRUpdate = TIMERS_GetMilliSeconds();
     }
     return FALSE;
 }
