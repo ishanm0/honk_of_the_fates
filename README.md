@@ -2,6 +2,8 @@
 
 The goal of this project is to run a playable game of rock-paper-scissors crossed with laser tag as a wand duel.
 
+Python Bluetooth code is based on [this Adafruit library](https://github.com/adafruit/Adafruit_Python_BluefruitLE), using the [Adafruit Bluefruit LE UART Friend](https://www.adafruit.com/product/2479)
+
 ## Setup
 
 The project requires at least two STM32 boards with the proper components attached and a macOS or Linux computer. (Note: we have not tested on Linux, use at your own risk.)
@@ -9,7 +11,12 @@ Our repo contains all of the necessary files except for the Python Bluetooth int
 
 Install the Adafruit library:
 - [Linux](https://github.com/adafruit/Adafruit_Python_BluefruitLE?tab=readme-ov-file#linux--raspberry-pi-requirements)
-- [macOS](https://github.com/adafruit/Adafruit_Python_BluefruitLE?tab=readme-ov-file#mac-osx-requirements)
+- macOS:
+    - `python3 -m venv venv`
+    - `source venv/bin/activate`
+    - `pip install -r requirements.txt`
+
+Unfortunately, there is no Windows support due to Adafruit not having tested Windows' Bluetooth APIs, which were only recently added. Additionally, the original Adafruit library that this project is based on was deprecated in 2020, in favor of a new library that only works on Raspberry Pi.
 
 ## Usage
 
