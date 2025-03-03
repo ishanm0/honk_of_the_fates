@@ -61,7 +61,7 @@ typedef enum
 {                       // see google doc stm32 state machine
     STATE_CON_WAIT,     // initialize connection
     STATE_CHOOSE_COLOR, // choose color
-    STATE_COLOR_ACK,    // Send color Pack
+    STATE_COLOR_ACK,    // Send color ack
     STATE_WAIT_ASSIGN,  // wait for game acknowledgement
     STATE_START,        // all the loops
 } main_sm_t;
